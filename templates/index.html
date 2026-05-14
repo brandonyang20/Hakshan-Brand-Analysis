@@ -3,187 +3,162 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>客善 Hakshan — Brand Analysis Dashboard</title>
-
-  <!-- Fonts -->
+  <title>客善 Hakshan — Brand Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet"/>
-
-  <!-- Tailwind -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            red:  { brand: '#B91C1C', light: '#FEE2E2', dark: '#7F1D1D' },
-            gold: { brand: '#B45309', light: '#FEF3C7', dark: '#78350F' },
-          },
-          fontFamily: { sans: ['Inter','sans-serif'], zh: ['Noto Sans SC','sans-serif'] }
+      theme: { extend: {
+        fontFamily: {
+          sans: ['Inter','sans-serif'],
+          mono: ['Fira Code','monospace'],
+          zh:   ['Noto Sans SC','sans-serif'],
         }
-      }
+      }}
     }
   </script>
-
-  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
-
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .zh  { font-family: 'Noto Sans SC', sans-serif; }
+    html { scroll-padding-top: 52px; }
+    body { font-family:'Inter',sans-serif; background:#FAFAFA; }
+    .zh  { font-family:'Noto Sans SC',sans-serif; }
+    .mono{ font-family:'Fira Code',monospace; }
 
-    /* ── Scroll-padding for sticky header ── */
-    html { scroll-padding-top: 64px; }
-
-    /* ── Nav link ── */
-    .nav-link { @apply text-sm font-medium text-gray-500 hover:text-red-brand transition-colors px-1 py-0.5; }
-    .nav-link.active { @apply text-red-brand border-b-2 border-red-brand; }
+    /* ── Nav ── */
+    .nav-item { font-size:.8125rem; color:#6B7280; cursor:pointer; transition:color .15s; }
+    .nav-item:hover { color:#111827; }
+    .nav-item.active { color:#111827; font-weight:500; }
 
     /* ── Cards ── */
-    .card  { @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-5; }
-    .card-sm { @apply bg-white rounded-xl shadow-sm border border-gray-100 p-4; }
+    .card { background:#fff; border:1px solid #E5E7EB; border-radius:8px; padding:16px; }
 
-    /* ── Section title ── */
-    .section-title { @apply text-xl font-bold text-gray-900 flex items-center gap-2 mb-1; }
-    .section-sub   { @apply text-sm text-gray-500 mb-5; }
-
-    /* ── Badges ── */
-    .badge        { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold; }
-    .badge-red    { @apply bg-red-light text-red-dark; }
-    .badge-gold   { @apply bg-gold-light text-gold-dark; }
-    .badge-green  { @apply bg-green-100 text-green-800; }
-    .badge-blue   { @apply bg-blue-100 text-blue-800; }
-    .badge-gray   { @apply bg-gray-100 text-gray-700; }
-    .badge-purple { @apply bg-purple-100 text-purple-800; }
+    /* ── Tags/badges ── */
+    .tag { display:inline-flex; align-items:center; padding:2px 7px; border-radius:4px; font-size:.6875rem; font-weight:500; white-space:nowrap; }
+    .tag-red    { background:#FEF2F2; color:#DC2626; }
+    .tag-amber  { background:#FFFBEB; color:#B45309; }
+    .tag-green  { background:#F0FDF4; color:#16A34A; }
+    .tag-blue   { background:#EFF6FF; color:#2563EB; }
+    .tag-gray   { background:#F9FAFB; color:#4B5563; border:1px solid #E5E7EB; }
+    .tag-purple { background:#F5F3FF; color:#7C3AED; }
 
     /* ── Tabs ── */
-    .tab-btn { @apply px-3 py-1.5 text-sm font-medium rounded-lg cursor-pointer transition-colors; }
-    .tab-btn.active        { @apply bg-red-brand text-white; }
-    .tab-btn:not(.active)  { @apply text-gray-600 hover:bg-gray-100; }
+    .tab { padding:5px 12px; font-size:.8125rem; font-weight:500; border-radius:6px; cursor:pointer; transition:all .15s; color:#6B7280; }
+    .tab:hover { background:#F3F4F6; color:#374151; }
+    .tab.active { background:#111827; color:#fff; }
 
-    /* ── Hover lift ── */
-    .lift { transition: transform .15s, box-shadow .15s; }
-    .lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.10); }
+    /* ── Progress ── */
+    .prog-track { width:100%; background:#F3F4F6; border-radius:9999px; height:4px; }
+    .prog-fill  { height:4px; border-radius:9999px; transition:width .7s ease; }
 
     /* ── Spinner ── */
-    .spin { animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Progress bar ── */
-    .prog-bg  { @apply w-full bg-gray-100 rounded-full h-2.5; }
-    .prog-bar { @apply h-2.5 rounded-full transition-all duration-700; }
-
-    /* ── Gauge ── */
-    .gauge-wrap  { position: relative; display: inline-flex; align-items: center; justify-content: center; }
-    .gauge-label { position: absolute; text-align: center; }
-
-    /* ── News cards ── */
-    .news-card { @apply block bg-white rounded-xl border border-gray-100 shadow-sm p-4 lift flex flex-col gap-2; }
-
-    /* ── Branch accordion ── */
-    details > summary { cursor: pointer; list-style: none; }
-    details > summary::-webkit-details-marker { display: none; }
-    details[open] .chevron { transform: rotate(180deg); }
-    .chevron { transition: transform .2s; }
-
-    /* ── Editable field ── */
-    .edit-overlay { display: none; }
-    .edit-mode .edit-overlay { display: flex; }
-    .edit-mode .edit-static  { display: none; }
-
-    /* ── Modal ── */
-    #modal-backdrop { display: none; }
-    #modal-backdrop.open { display: flex; }
+    .spin { animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
 
     /* ── Skeleton ── */
-    .skeleton { @apply bg-gray-100 rounded-xl animate-pulse; }
+    .skeleton { background:#F3F4F6; border-radius:8px; animation:pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
 
     /* ── Stars ── */
-    .star-full  { color: #F59E0B; }
-    .star-empty { color: #E5E7EB; }
+    .star-full  { color:#F59E0B; }
+    .star-empty { color:#E5E7EB; }
 
-    /* ── Markdown in modal ── */
-    #modal-content h1, #modal-content h2, #modal-content h3 {
-      font-weight: 700; margin-top: 1.25rem; margin-bottom: .5rem; color: #111;
-    }
-    #modal-content h1 { font-size: 1.25rem; }
-    #modal-content h2 { font-size: 1.1rem; border-bottom: 1px solid #f3f4f6; padding-bottom: .25rem; }
-    #modal-content h3 { font-size: 1rem; color: #B91C1C; }
-    #modal-content p, #modal-content li { font-size: .875rem; line-height: 1.6; color: #374151; }
-    #modal-content ul, #modal-content ol { padding-left: 1.25rem; margin: .5rem 0; }
-    #modal-content table { width: 100%; border-collapse: collapse; font-size: .8rem; margin: .75rem 0; }
-    #modal-content th { background: #f9fafb; padding: .4rem .6rem; text-align: left; border-bottom: 2px solid #e5e7eb; }
-    #modal-content td { padding: .4rem .6rem; border-bottom: 1px solid #f3f4f6; }
-    #modal-content code { background: #f3f4f6; padding: .1rem .3rem; border-radius: .25rem; font-size: .8rem; }
-    #modal-content strong { font-weight: 600; color: #111; }
-    #modal-content blockquote { border-left: 3px solid #B91C1C; padding-left: .75rem; color: #6b7280; margin: .5rem 0; }
+    /* ── Edit mode ── */
+    .edit-overlay { display:none; }
+    .edit-mode .edit-overlay { display:flex; }
+    .edit-mode .edit-static  { display:none; }
 
-    /* ── Print styles ── */
+    /* ── Modal ── */
+    #modal-backdrop { display:none; }
+    #modal-backdrop.open { display:flex; }
+    #modal-content h1 { font-weight:700; font-size:1.05rem; margin:1.2rem 0 .35rem; }
+    #modal-content h2 { font-weight:600; font-size:.95rem; border-bottom:1px solid #F3F4F6; padding-bottom:.2rem; margin:.9rem 0 .35rem; }
+    #modal-content h3 { font-weight:600; font-size:.875rem; color:#DC2626; margin:.7rem 0 .25rem; }
+    #modal-content p, #modal-content li { font-size:.85rem; line-height:1.65; color:#374151; }
+    #modal-content ul { padding-left:1.1rem; margin:.35rem 0; }
+    #modal-content table { width:100%; border-collapse:collapse; font-size:.8rem; margin:.6rem 0; }
+    #modal-content th { background:#F9FAFB; padding:.35rem .5rem; text-align:left; border-bottom:1px solid #E5E7EB; font-weight:600; }
+    #modal-content td { padding:.35rem .5rem; border-bottom:1px solid #F3F4F6; }
+    #modal-content code { background:#F3F4F6; padding:.1rem .3rem; border-radius:3px; font-size:.78rem; font-family:'Fira Code',monospace; }
+    #modal-content strong { font-weight:600; color:#111827; }
+    #modal-content blockquote { border-left:2px solid #DC2626; padding-left:.65rem; color:#6B7280; margin:.4rem 0; }
+    #modal-content a { color:#DC2626; text-decoration:underline; }
+
+    /* ── Section label ── */
+    .section-label { font-size:.6875rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:#9CA3AF; display:block; margin-bottom:3px; }
+
+    /* ── Print ── */
     @media print {
-      header, #news-section, #edit-bar, #modal-backdrop { display: none !important; }
-      .no-print { display: none !important; }
-      .card, .card-sm { box-shadow: none; border: 1px solid #e5e7eb; break-inside: avoid; }
-      body { background: white; }
-      main { padding: 0 !important; }
-      .print-break { page-break-before: always; }
+      header, #news-section, #modal-backdrop { display:none !important; }
+      .no-print { display:none !important; }
+      .card { border:1px solid #E5E7EB; box-shadow:none; break-inside:avoid; }
+      body { background:#fff; }
+      main { padding:0 !important; }
     }
+
+    /* ── Icon SVG helper ── */
+    .icon { display:inline-block; vertical-align:middle; flex-shrink:0; }
+
+    /* ── Divider ── */
+    .section-divider { border:none; border-top:1px solid #F3F4F6; margin:0; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-900">
+<body class="min-h-screen text-gray-900">
 
-<!-- ══════════════════════════════════════════════════════════
-     STICKY HEADER
-══════════════════════════════════════════════════════════ -->
-<header class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm no-print">
-  <div class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="bg-white border-b border-gray-200 sticky top-0 z-40 no-print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between gap-4">
 
-    <!-- Logo + brand -->
-    <div class="flex items-center gap-3 flex-shrink-0">
-      <div class="w-9 h-9 rounded-xl bg-red-brand flex items-center justify-center">
-        <span class="zh text-white font-bold text-base leading-none">客</span>
+    <!-- Logo -->
+    <div class="flex items-center gap-2.5 flex-shrink-0">
+      <div class="w-7 h-7 rounded-md bg-[#DC2626] flex items-center justify-center flex-shrink-0">
+        <span class="zh text-white font-bold text-sm leading-none">客</span>
       </div>
-      <div class="hidden sm:block">
-        <p class="font-bold text-gray-900 text-sm leading-tight">客善 Hakshan</p>
-        <p class="text-xs text-gray-400">Brand Analysis Dashboard</p>
+      <div class="hidden sm:flex items-center gap-1.5">
+        <span class="text-sm font-semibold text-gray-900">Hakshan</span>
+        <span class="text-gray-300 text-sm">/</span>
+        <span class="text-sm text-gray-500">Brand Dashboard</span>
       </div>
     </div>
 
-    <!-- Nav links -->
-    <nav class="hidden lg:flex items-center gap-4">
-      <a href="#overview"     class="nav-link" onclick="setActiveNav(this)">Overview</a>
-      <a href="#news-section" class="nav-link" onclick="setActiveNav(this)">News</a>
-      <a href="#social"       class="nav-link" onclick="setActiveNav(this)">Social</a>
-      <a href="#reviews"      class="nav-link" onclick="setActiveNav(this)">Reviews</a>
-      <a href="#competitors"  class="nav-link" onclick="setActiveNav(this)">Competitors</a>
-      <a href="#strategy"     class="nav-link" onclick="setActiveNav(this)">Strategy</a>
+    <!-- Nav -->
+    <nav class="hidden lg:flex items-center gap-5">
+      <a href="#overview"     class="nav-item" onclick="setActiveNav(this)">Overview</a>
+      <a href="#news-section" class="nav-item" onclick="setActiveNav(this)">News</a>
+      <a href="#social"       class="nav-item" onclick="setActiveNav(this)">Social</a>
+      <a href="#reviews"      class="nav-item" onclick="setActiveNav(this)">Reviews</a>
+      <a href="#competitors"  class="nav-item" onclick="setActiveNav(this)">Competitors</a>
+      <a href="#strategy"     class="nav-item" onclick="setActiveNav(this)">Strategy</a>
     </nav>
 
     <!-- Actions -->
-    <div id="edit-bar" class="flex items-center gap-2 flex-shrink-0">
-      <span id="last-updated" class="text-xs text-gray-400 hidden md:block"></span>
-      <svg id="spinner" class="spin w-4 h-4 text-red-brand hidden" viewBox="0 0 24 24" fill="none">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+    <div class="flex items-center gap-1.5 flex-shrink-0">
+      <span id="last-updated" class="mono text-xs text-gray-400 hidden md:block mr-1"></span>
+
+      <svg id="spinner" class="spin w-4 h-4 text-[#DC2626] hidden" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
       </svg>
 
-      <!-- Edit toggle -->
-      <button id="btn-edit" title="Edit metrics"
-        onclick="toggleEditMode()"
-        class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:border-gold-brand hover:text-gold-brand transition-colors">
-        ✏️ Edit
+      <button id="btn-edit" onclick="toggleEditMode()"
+        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all duration-150 cursor-pointer">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+        </svg>
+        <span id="btn-edit-text">Edit</span>
       </button>
 
-      <!-- Print -->
       <button onclick="window.print()"
-        class="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:border-gray-400 transition-colors">
-        🖨️ Print
+        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all duration-150 cursor-pointer">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.056 48.056 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
+        </svg>
       </button>
 
-      <!-- Refresh -->
       <button id="btn-refresh"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-brand text-white text-sm font-semibold rounded-lg hover:bg-red-dark transition-colors">
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-[#DC2626] text-white hover:bg-[#B91C1C] transition-all duration-150 cursor-pointer">
         <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
         </svg>
         <span id="btn-refresh-text">Refresh</span>
       </button>
@@ -192,259 +167,271 @@
 </header>
 
 <!-- Error banner -->
-<div id="error-banner" class="hidden max-w-7xl mx-auto px-4 mt-3 no-print">
-  <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2.5 flex justify-between items-center">
+<div id="error-banner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 mt-3 no-print">
+  <div class="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-4 py-2.5 flex justify-between items-center">
     <span id="error-message"></span>
-    <button onclick="hideError()" class="text-red-400 hover:text-red-600 ml-3">✕</button>
+    <button onclick="hideError()" class="ml-3 cursor-pointer text-red-400 hover:text-red-600">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
-     MAIN
-══════════════════════════════════════════════════════════ -->
-<main class="max-w-7xl mx-auto px-4 py-6 space-y-10">
+<!-- ═══════════════════ MAIN ═══════════════════ -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-14">
 
-  <!-- ─── OVERVIEW ───────────────────────────────────────────────────── -->
+  <!-- ── OVERVIEW ── -->
   <section id="overview">
 
-    <!-- Tagline hero strip -->
-    <div class="bg-gradient-to-r from-red-brand via-red-700 to-red-dark rounded-2xl px-6 py-5 text-white mb-6 relative overflow-hidden">
-      <div class="absolute top-0 right-0 opacity-5 text-9xl zh font-black leading-none select-none">善</div>
-      <p class="text-xs font-semibold tracking-widest uppercase opacity-70 mb-1">客善 Hakshan · Brand Dashboard</p>
-      <p class="zh text-2xl font-bold leading-snug">让平凡的一餐，有着非凡的意义</p>
-      <p class="text-sm opacity-75 mt-1">Making an ordinary meal, extraordinarily meaningful</p>
-      <p class="text-xs opacity-50 mt-3">Malaysia's first charity-embedded Hakka dining concept · 5 branches · Klang Valley</p>
-    </div>
-
-    <!-- KPI cards -->
-    <div id="kpi-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-      <div class="skeleton h-32 rounded-2xl"></div>
-      <div class="skeleton h-32 rounded-2xl"></div>
-      <div class="skeleton h-32 rounded-2xl"></div>
-      <div class="skeleton h-32 rounded-2xl"></div>
-    </div>
-
-    <!-- Brand health radar + score -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      <!-- Radar -->
-      <div class="card">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <p class="section-title text-base !mb-0">Brand Health Radar</p>
-            <p class="text-xs text-gray-400">Hakshan vs ideal benchmark</p>
-          </div>
-          <button onclick="openModal('brand')" class="text-xs text-red-brand hover:underline no-print">Full Analysis ↗</button>
+    <!-- Brand header -->
+    <div class="pb-8 mb-8 border-b border-gray-100">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <span class="section-label">Brand Intelligence · May 2026</span>
+          <h1 class="text-xl font-semibold text-gray-900 mt-1 mb-1 flex items-center gap-2">
+            <span class="zh">客善</span><span class="text-gray-300 font-light">·</span>Hakshan
+          </h1>
+          <p class="text-sm text-gray-500">Malaysia's first charity-embedded Hakka dining concept · 5 branches · Klang Valley</p>
+          <p class="text-xs text-gray-400 mt-1.5 zh">让平凡的一餐，有着非凡的意义 <span class="not-zh text-gray-300 ml-1" style="font-family:Inter">— Making an ordinary meal, extraordinarily meaningful</span></p>
         </div>
-        <div class="relative h-64">
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <span class="tag tag-amber">Social Score 4.3/10</span>
+          <span class="tag tag-green">Reviews 4.4–4.7 ★</span>
+          <span class="tag tag-blue">~100% Recommend</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI grid -->
+    <div id="kpi-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+      <div class="skeleton h-28 rounded-lg"></div>
+      <div class="skeleton h-28 rounded-lg"></div>
+      <div class="skeleton h-28 rounded-lg"></div>
+      <div class="skeleton h-28 rounded-lg"></div>
+    </div>
+
+    <!-- Radar + dimensions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="section-label">Brand Health Radar</span>
+            <p class="text-sm font-medium text-gray-800">Hakshan vs Ideal Benchmark</p>
+          </div>
+          <button onclick="openModal('brand')"
+            class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+            Full report
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+            </svg>
+          </button>
+        </div>
+        <div class="relative h-60">
           <canvas id="chart-radar"></canvas>
         </div>
       </div>
-
-      <!-- Dimension scores -->
       <div class="card">
-        <p class="section-title text-base !mb-4">Health Dimensions</p>
-        <div id="health-dimensions" class="space-y-3"></div>
+        <span class="section-label mb-3 block">Dimension Scores</span>
+        <div id="health-dimensions" class="space-y-3.5"></div>
       </div>
-
     </div>
   </section>
 
-  <!-- ─── NEWS ────────────────────────────────────────────────────────── -->
+  <!-- ── NEWS ── -->
   <section id="news-section">
-    <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
       <div>
-        <h2 class="section-title">📰 Latest News</h2>
-        <p class="section-sub !mb-0">Live articles from Google News — updates every 24 hours</p>
+        <span class="section-label">Live Intelligence</span>
+        <p class="text-sm font-medium text-gray-800">Latest News</p>
       </div>
-      <!-- News filter tabs -->
-      <div class="flex gap-1 bg-gray-100 p-1 rounded-xl no-print">
-        <button class="tab-btn active" onclick="filterNews('all',this)">All</button>
-        <button class="tab-btn" onclick="filterNews('hakshan',this)">Hakshan</button>
-        <button class="tab-btn" onclick="filterNews('competitor',this)">Competitors</button>
-        <button class="tab-btn" onclick="filterNews('industry',this)">Industry</button>
+      <div class="flex gap-1 no-print">
+        <button class="tab active" onclick="filterNews('all',this)">All</button>
+        <button class="tab" onclick="filterNews('hakshan',this)">Hakshan</button>
+        <button class="tab" onclick="filterNews('competitor',this)">Competitors</button>
+        <button class="tab" onclick="filterNews('industry',this)">Industry</button>
       </div>
     </div>
-
-    <div id="news-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div class="skeleton h-36 rounded-xl"></div>
-      <div class="skeleton h-36 rounded-xl"></div>
-      <div class="skeleton h-36 rounded-xl"></div>
+    <div id="news-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="skeleton h-32 rounded-lg"></div>
+      <div class="skeleton h-32 rounded-lg"></div>
+      <div class="skeleton h-32 rounded-lg"></div>
     </div>
   </section>
 
-  <!-- ─── SOCIAL MEDIA ─────────────────────────────────────────────────── -->
+  <!-- ── SOCIAL ── -->
   <section id="social">
-    <div class="flex items-center justify-between mb-1">
-      <h2 class="section-title">📱 Social Media Deep Dive</h2>
-      <button onclick="openModal('social')" class="text-sm text-red-brand hover:underline no-print">Full Analysis ↗</button>
-    </div>
-    <p class="section-sub">Platform performance, content breakdown, and posting strategy</p>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- Platform status cards -->
-      <div class="lg:col-span-1 space-y-3">
-        <div id="social-platforms"></div>
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Platform Analysis</span>
+        <p class="text-sm font-medium text-gray-800">Social Media</p>
       </div>
-
-      <!-- Content breakdown + growth chart -->
-      <div class="lg:col-span-2 space-y-5">
-
-        <!-- Growth line chart -->
+      <button onclick="openModal('social')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-1 space-y-3" id="social-platforms"></div>
+      <div class="lg:col-span-2 space-y-4">
         <div class="card">
-          <p class="font-semibold text-gray-800 text-sm mb-3">Follower Growth Trend (Jan–May 2026)</p>
+          <p class="text-xs font-medium text-gray-500 mb-3">Follower Growth — Jan to May 2026</p>
           <div class="h-44"><canvas id="chart-growth"></canvas></div>
         </div>
-
-        <!-- Content type bar -->
         <div class="card">
           <div class="flex items-center justify-between mb-3">
-            <p class="font-semibold text-gray-800 text-sm">Content Type Breakdown</p>
-            <span class="text-xs text-gold-brand font-medium">⚠ CSR content only 8%</span>
+            <p class="text-xs font-medium text-gray-500">Content Type Breakdown</p>
+            <span class="tag tag-amber">CSR only 8%</span>
           </div>
-          <div class="h-40"><canvas id="chart-content"></canvas></div>
+          <div class="h-36"><canvas id="chart-content"></canvas></div>
         </div>
-
       </div>
     </div>
-
-    <!-- Optimal posting times -->
-    <div class="card mt-5">
-      <p class="font-semibold text-gray-800 text-sm mb-3">Recommended Posting Times</p>
+    <div class="card mt-4">
+      <p class="text-xs font-medium text-gray-500 mb-3">Recommended Posting Times</p>
       <div id="posting-times" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"></div>
     </div>
   </section>
 
-  <!-- ─── REVIEWS ──────────────────────────────────────────────────────── -->
+  <!-- ── REVIEWS ── -->
   <section id="reviews">
-    <div class="flex items-center justify-between mb-1">
-      <h2 class="section-title">⭐ Per-Store Review Deep Dive</h2>
-      <button onclick="openModal('reviews')" class="text-sm text-red-brand hover:underline no-print">Full Analysis ↗</button>
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Per-Branch Analysis</span>
+        <p class="text-sm font-medium text-gray-800">Customer Reviews</p>
+      </div>
+      <button onclick="openModal('reviews')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
     </div>
-    <p class="section-sub">Sentiment breakdown, theme frequency, and review trends per branch</p>
-
-    <!-- Branch selector -->
-    <div id="branch-tabs" class="flex flex-wrap gap-2 mb-5 no-print"></div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      <!-- Branch detail panel -->
+    <div id="branch-tabs" class="flex flex-wrap gap-1.5 mb-5 no-print"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div id="branch-detail" class="space-y-4"></div>
-
-      <!-- Review trend + sentiment chart -->
-      <div class="space-y-5">
+      <div class="space-y-4">
         <div class="card">
-          <p class="font-semibold text-gray-800 text-sm mb-3">Monthly Review Volume (All Branches)</p>
-          <div class="h-52"><canvas id="chart-reviews"></canvas></div>
+          <p class="text-xs font-medium text-gray-500 mb-3">Monthly Review Volume — All Branches</p>
+          <div class="h-48"><canvas id="chart-reviews"></canvas></div>
         </div>
         <div class="card">
-          <p class="font-semibold text-gray-800 text-sm mb-3">Sentiment Breakdown by Branch</p>
-          <div id="sentiment-bars" class="space-y-3"></div>
+          <p class="text-xs font-medium text-gray-500 mb-3">Sentiment by Branch</p>
+          <div id="sentiment-bars" class="space-y-2.5"></div>
         </div>
       </div>
-
     </div>
   </section>
 
-  <!-- ─── COMPETITORS ──────────────────────────────────────────────────── -->
+  <!-- ── COMPETITORS ── -->
   <section id="competitors">
-    <div class="flex items-center justify-between mb-1">
-      <h2 class="section-title">🏆 Competitor Content Tracking</h2>
-      <button onclick="openModal('competitors')" class="text-sm text-red-brand hover:underline no-print">Full Analysis ↗</button>
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Competitive Intelligence</span>
+        <p class="text-sm font-medium text-gray-800">Competitor Tracking</p>
+      </div>
+      <button onclick="openModal('competitors')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
     </div>
-    <p class="section-sub">Social reach, content strategy, and competitive positioning</p>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      <!-- Competitor table -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div class="card">
-        <p class="font-semibold text-gray-800 text-sm mb-3">Social Reach Comparison</p>
+        <p class="text-xs font-medium text-gray-500 mb-3">Social Reach Comparison</p>
         <div id="competitor-table"></div>
-        <div class="mt-4 bg-red-light rounded-xl p-3 text-xs text-red-dark">
-          <strong>Opportunity:</strong> Hakshan leads the category digitally, but the bar is low.
-          First mover on TikTok wins the entire Hakka category in Malaysia.
+        <div class="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 leading-relaxed">
+          Hakshan leads digitally but the bar is low. <strong>First mover on TikTok wins the entire Hakka category in Malaysia.</strong>
         </div>
       </div>
-
-      <!-- Competitor social bar chart -->
       <div class="card">
-        <p class="font-semibold text-gray-800 text-sm mb-3">Social Following Comparison</p>
-        <div class="h-52"><canvas id="chart-competitor"></canvas></div>
+        <p class="text-xs font-medium text-gray-500 mb-3">Social Following vs Competitors</p>
+        <div class="h-48"><canvas id="chart-competitor"></canvas></div>
       </div>
-
     </div>
-
-    <!-- Competitor strategy breakdown -->
-    <div id="competitor-strategy" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5"></div>
+    <div id="competitor-strategy" class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4"></div>
   </section>
 
-  <!-- ─── STRATEGY ─────────────────────────────────────────────────────── -->
+  <!-- ── STRATEGY ── -->
   <section id="strategy">
-    <div class="flex items-center justify-between mb-1">
-      <h2 class="section-title">🎯 Campaign & KPI Tracking</h2>
-      <button onclick="openModal('strategy')" class="text-sm text-red-brand hover:underline no-print">Full Strategy ↗</button>
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Roadmap &amp; KPIs</span>
+        <p class="text-sm font-medium text-gray-800">Campaign Strategy</p>
+      </div>
+      <button onclick="openModal('strategy')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
     </div>
-    <p class="section-sub">Progress toward targets and priority recommendations</p>
 
-    <!-- KPI progress gauges -->
-    <div id="kpi-progress" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
+    <div id="kpi-progress" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6"></div>
 
-    <!-- Recommendations -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
       <div class="card">
-        <p class="font-semibold text-gray-800 mb-3">Action Roadmap</p>
-        <div class="flex gap-1 bg-gray-50 p-1 rounded-xl mb-4 w-fit">
-          <button class="tab-btn active" onclick="switchRecTab('h1',this)">H1 · Now</button>
-          <button class="tab-btn" onclick="switchRecTab('h2',this)">H2 · Soon</button>
-          <button class="tab-btn" onclick="switchRecTab('h3',this)">H3 · Plan</button>
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-xs font-medium text-gray-500">Action Roadmap</p>
+          <div class="flex gap-1">
+            <button class="tab active" onclick="switchRecTab('h1',this)">Now</button>
+            <button class="tab" onclick="switchRecTab('h2',this)">Soon</button>
+            <button class="tab" onclick="switchRecTab('h3',this)">Plan</button>
+          </div>
         </div>
-        <div id="recs-h1" class="tab-content space-y-2"></div>
-        <div id="recs-h2" class="tab-content space-y-2 hidden"></div>
-        <div id="recs-h3" class="tab-content space-y-2 hidden"></div>
+        <div id="recs-h1" class="space-y-1.5"></div>
+        <div id="recs-h2" class="space-y-1.5 hidden"></div>
+        <div id="recs-h3" class="space-y-1.5 hidden"></div>
       </div>
       <div class="card">
-        <p class="font-semibold text-gray-800 mb-3">KPI Targets</p>
+        <p class="text-xs font-medium text-gray-500 mb-3">KPI Targets</p>
         <div id="kpi-table"></div>
       </div>
     </div>
 
-    <!-- Branch cards -->
-    <h3 class="text-base font-bold text-gray-800 mb-3">📍 5 Branch Locations</h3>
-    <div id="branch-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
-      <div class="skeleton h-52 rounded-2xl"></div>
-      <div class="skeleton h-52 rounded-2xl"></div>
-      <div class="skeleton h-52 rounded-2xl"></div>
-      <div class="skeleton h-52 rounded-2xl"></div>
-      <div class="skeleton h-52 rounded-2xl"></div>
+    <span class="section-label mb-3 block">5 Branch Locations</span>
+    <div id="branch-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-8">
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
     </div>
 
-    <!-- Signature dishes -->
-    <h3 class="text-base font-bold text-gray-800 mb-3">🍜 Signature Dishes</h3>
+    <span class="section-label mb-3 block">Signature Dishes</span>
     <div id="dishes-grid" class="flex flex-wrap gap-2"></div>
   </section>
 
 </main>
 
-<footer class="mt-12 border-t border-gray-200 bg-white no-print">
-  <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
-    <span>客善 Hakshan Brand Analysis · Data: publicly available information · May 2026</span>
-    <span>News via Google News RSS · Auto-refreshes every 24 hours · Edits saved to browser</span>
+<footer class="mt-16 border-t border-gray-100 no-print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
+    <span>客善 Hakshan Brand Analysis · Publicly available data · May 2026</span>
+    <span class="mono">News via Google News RSS · Auto-refreshes every 24h</span>
   </div>
 </footer>
 
-<!-- ══════════════════════════════════════════════════════════
-     ANALYSIS MODAL
-══════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════ MODAL ═══════════════════ -->
 <div id="modal-backdrop"
-  class="fixed inset-0 z-50 bg-black bg-opacity-40 items-end sm:items-center justify-center p-0 sm:p-4"
+  class="fixed inset-0 z-50 bg-black/40 items-end sm:items-center justify-center p-0 sm:p-4"
   onclick="closeModal(event)">
-  <div class="bg-white w-full sm:max-w-3xl sm:rounded-2xl shadow-2xl max-h-[90vh] flex flex-col"
+  <div class="bg-white w-full sm:max-w-3xl sm:rounded-xl border border-gray-200 shadow-2xl max-h-[90vh] flex flex-col"
     onclick="event.stopPropagation()">
-    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-      <h2 id="modal-title" class="font-bold text-gray-900"></h2>
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+      <h2 id="modal-title" class="font-semibold text-gray-900 text-sm"></h2>
       <button onclick="document.getElementById('modal-backdrop').classList.remove('open')"
-        class="text-gray-400 hover:text-gray-700 text-xl leading-none">✕</button>
+        class="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-150">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
     </div>
     <div id="modal-content" class="overflow-y-auto px-5 py-4 flex-1 prose prose-sm max-w-none">
       <p class="text-gray-400 text-sm">Loading…</p>
@@ -452,38 +439,28 @@
   </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════
-     JAVASCRIPT
-══════════════════════════════════════════════════════════ -->
+<!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
 <script>
 // ── State ─────────────────────────────────────────────────────────────────
-let DATA = null;
-let allNews = [];
-let activeFilter = 'all';
-let activeBranch = 'kepong';
-let editMode = false;
-let charts = {};
+let DATA = null, allNews = [], activeFilter = 'all', activeBranch = 'kepong', editMode = false, charts = {};
 
 const SECTION_TITLES = {
-  brand: '01 · Brand Overview',
-  social: '02 · Social Media Analysis',
-  reviews: '03 · Reviews & Sentiment',
-  competitors: '04 · Competitor Analysis',
+  brand: '01 · Brand Overview', social: '02 · Social Media Analysis',
+  reviews: '03 · Reviews & Sentiment', competitors: '04 · Competitor Analysis',
   strategy: '05 · Strategy & Recommendations',
 };
 
-// ── Boot ──────────────────────────────────────────────────────────────────
+// ── Boot ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   loadData(false);
   document.getElementById('btn-refresh').addEventListener('click', handleRefresh);
 });
 
-// ── Data ──────────────────────────────────────────────────────────────────
+// ── Data ─────────────────────────────────────────────────────────────────
 async function loadData(force) {
   setLoading(true);
   try {
-    const url = force ? '/api/refresh' : '/api/data';
-    const resp = await fetch(url, { method: force ? 'POST' : 'GET' });
+    const resp = await fetch(force ? '/api/refresh' : '/api/data', { method: force ? 'POST' : 'GET' });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     DATA = await resp.json();
     if (DATA.error) throw new Error(DATA.error);
@@ -492,11 +469,8 @@ async function loadData(force) {
     renderAll(DATA);
     updateTimestamp(DATA.fetched_at);
     hideError();
-  } catch(e) {
-    showError('Could not load data: ' + e.message);
-  } finally {
-    setLoading(false);
-  }
+  } catch(e) { showError('Could not load data: ' + e.message); }
+  finally { setLoading(false); }
 }
 
 async function handleRefresh() {
@@ -505,28 +479,26 @@ async function handleRefresh() {
   document.getElementById('btn-refresh').disabled = false;
 }
 
-// ── Local storage overrides (editable metrics) ────────────────────────────
+// ── Local overrides ───────────────────────────────────────────────────────
 function applyLocalOverrides(data) {
   const raw = localStorage.getItem('hakshan_overrides');
   if (!raw) return;
   try {
     const ov = JSON.parse(raw);
-    if (ov.ig_followers)  data.social_media.instagram.followers = parseInt(ov.ig_followers);
-    if (ov.fb_likes)      data.social_media.facebook.likes = parseInt(ov.fb_likes);
-    if (ov.tiktok)        data.social_media.tiktok.followers = parseInt(ov.tiktok);
-    if (ov.xhs)           data.social_media.xiaohongshu.followers = parseInt(ov.xhs);
-    if (ov.ig_posts)      data.social_media.instagram.posts = parseInt(ov.ig_posts);
-    // Sync kpi_targets.current values
-    if (ov.ig_followers)  data.kpi_targets.instagram_followers.current = parseInt(ov.ig_followers);
-    if (ov.fb_likes)      data.kpi_targets.facebook_likes.current = parseInt(ov.fb_likes);
-    if (ov.tiktok)        data.kpi_targets.tiktok_followers.current = parseInt(ov.tiktok);
-    if (ov.xhs)           data.kpi_targets.xhs_followers.current = parseInt(ov.xhs);
+    if (ov.ig_followers) data.social_media.instagram.followers = parseInt(ov.ig_followers);
+    if (ov.fb_likes)     data.social_media.facebook.likes      = parseInt(ov.fb_likes);
+    if (ov.tiktok)       data.social_media.tiktok.followers    = parseInt(ov.tiktok);
+    if (ov.xhs)          data.social_media.xiaohongshu.followers = parseInt(ov.xhs);
+    if (ov.ig_posts)     data.social_media.instagram.posts     = parseInt(ov.ig_posts);
+    if (ov.ig_followers) data.kpi_targets.instagram_followers.current = parseInt(ov.ig_followers);
+    if (ov.fb_likes)     data.kpi_targets.facebook_likes.current      = parseInt(ov.fb_likes);
+    if (ov.tiktok)       data.kpi_targets.tiktok_followers.current    = parseInt(ov.tiktok);
+    if (ov.xhs)          data.kpi_targets.xhs_followers.current       = parseInt(ov.xhs);
   } catch {}
 }
 
 function saveOverride(key, value) {
-  const raw = localStorage.getItem('hakshan_overrides') || '{}';
-  const ov = JSON.parse(raw);
+  const ov = JSON.parse(localStorage.getItem('hakshan_overrides') || '{}');
   ov[key] = value;
   localStorage.setItem('hakshan_overrides', JSON.stringify(ov));
 }
@@ -540,7 +512,7 @@ function renderAll(d) {
   renderSocialPlatforms(d.social_media);
   renderGrowthChart(d.chart_data.social_growth);
   renderContentChart(d.chart_data.content_breakdown);
-  renderPostingTimes(d.social_media);
+  renderPostingTimes();
   renderBranchTabs(d.branches);
   renderBranchDetail(d.branches, activeBranch, d.chart_data.sentiment_by_branch);
   renderReviewTrendChart(d.chart_data.review_trend);
@@ -557,52 +529,56 @@ function renderAll(d) {
 
 // ── KPI Cards ─────────────────────────────────────────────────────────────
 function renderKPIs(d) {
-  const sm = d.social_media;
-  const rv = d.reviews;
+  const sm = d.social_media, rv = d.reviews;
   const cards = [
-    { icon:'📸', label:'Instagram', key:'ig_followers', value: sm.instagram.followers.toLocaleString(),
-      sub: sm.instagram.posts + ' posts', badge:'Under-grown', bc:'badge-gold',
+    { label:'Instagram', value: sm.instagram.followers.toLocaleString(), sub: sm.instagram.posts + ' posts',
+      tag:'Under-grown', tagCls:'tag-amber', note:'Target: 8K–15K followers',
       editKey:'ig_followers', editVal: sm.instagram.followers,
-      color:'from-orange-50', note:'Target: 8K–15K' },
-    { icon:'👥', label:'Facebook', key:'fb_likes', value: sm.facebook.likes.toLocaleString(),
-      sub: 'Page likes', badge:'Moderate', bc:'badge-gold',
+      dot:'#E1306C' },
+    { label:'Facebook', value: sm.facebook.likes.toLocaleString(), sub: 'Page likes',
+      tag:'Moderate', tagCls:'tag-amber', note:'Skews 30–55 demographic',
       editKey:'fb_likes', editVal: sm.facebook.likes,
-      color:'from-blue-50', note:'Skews 30–55 demo' },
-    { icon:'⭐', label:'Google Reviews', key:'greviews', value: rv.total_google_reviews,
-      sub: 'Rating ' + rv.overall_rating_range + ' / 5', badge:'Strong', bc:'badge-green',
-      editKey:null, editVal: null,
-      color:'from-yellow-50', note: rv.recommendation_rate + ' recommend' },
-    { icon:'📊', label:'Social Health', key:'health', value: sm.social_health_score + '/10',
-      sub: 'Brand score', badge:'Needs Work', bc:'badge-red',
-      editKey:null, editVal: null,
-      color:'from-red-50', note:'TikTok & XHS absent' },
+      dot:'#1877F2' },
+    { label:'Google Reviews', value: rv.total_google_reviews, sub: rv.overall_rating_range + ' / 5.0',
+      tag:'Strong', tagCls:'tag-green', note: rv.recommendation_rate + ' recommend',
+      editKey:null, editVal:null,
+      dot:'#F59E0B' },
+    { label:'Social Health', value: sm.social_health_score + '/10', sub: 'Brand score',
+      tag:'Needs Work', tagCls:'tag-red', note:'TikTok & XHS absent',
+      editKey:null, editVal:null,
+      dot:'#DC2626' },
   ];
   document.getElementById('kpi-grid').innerHTML = cards.map(c => `
-    <div class="bg-gradient-to-br ${c.color} to-white rounded-2xl border border-gray-100 shadow-sm p-4">
-      <div class="flex items-start justify-between mb-2">
-        <span class="text-2xl">${c.icon}</span>
-        <span class="badge ${c.bc}">${c.badge}</span>
+    <div class="card flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span style="width:6px;height:6px;border-radius:50%;background:${c.dot};display:inline-block;flex-shrink:0"></span>
+          <span class="text-xs font-medium text-gray-500">${c.label}</span>
+        </div>
+        <span class="tag ${c.tagCls}">${c.tag}</span>
       </div>
       <div class="relative">
-        <p class="edit-static text-2xl font-extrabold text-gray-900">${c.value}</p>
+        <p class="edit-static mono text-2xl font-semibold text-gray-900 leading-none">${c.value}</p>
         ${c.editKey ? `
-        <div class="edit-overlay items-center gap-1">
+        <div class="edit-overlay items-center gap-1.5">
           <input type="number" value="${c.editVal}"
-            class="w-24 text-lg font-bold border border-gold-brand rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-gold-brand"
+            class="w-28 mono text-lg font-semibold border border-[#DC2626] rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#DC2626]"
             onblur="saveKPIEdit('${c.editKey}', this.value)"
             onkeydown="if(event.key==='Enter') this.blur()"/>
-          <span class="text-xs text-gray-400">↵ save</span>
+          <span class="text-xs text-gray-400">↵</span>
         </div>` : ''}
       </div>
-      <p class="text-xs text-gray-500 mt-0.5">${c.label} · ${c.sub}</p>
-      <p class="text-xs text-gray-400 mt-2">${c.note}</p>
+      <div>
+        <p class="text-xs text-gray-500">${c.sub}</p>
+        <p class="text-xs text-gray-400 mt-0.5">${c.note}</p>
+      </div>
     </div>
   `).join('');
 }
 
 function saveKPIEdit(key, value) {
   saveOverride(key, value);
-  loadData(false); // re-render with new overrides
+  loadData(false);
 }
 
 // ── Radar chart ───────────────────────────────────────────────────────────
@@ -614,76 +590,73 @@ function renderRadar(rd) {
     data: {
       labels: rd.dimensions,
       datasets: [
-        { label: 'Hakshan', data: rd.hakshan, fill: true,
-          backgroundColor: 'rgba(185,28,28,.15)', borderColor: '#B91C1C',
-          borderWidth: 2, pointBackgroundColor: '#B91C1C', pointRadius: 4 },
-        { label: 'Ideal', data: rd.ideal, fill: false,
-          backgroundColor: 'rgba(180,83,9,.08)', borderColor: '#B45309',
-          borderWidth: 1.5, borderDash: [4,4], pointRadius: 0 },
+        { label:'Hakshan', data:rd.hakshan, fill:true,
+          backgroundColor:'rgba(220,38,38,.12)', borderColor:'#DC2626',
+          borderWidth:2, pointBackgroundColor:'#DC2626', pointRadius:3 },
+        { label:'Ideal', data:rd.ideal, fill:false,
+          borderColor:'#D1D5DB', borderWidth:1.5, borderDash:[4,3], pointRadius:0 },
       ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { r: { min: 0, max: 10, ticks: { stepSize: 2, font: { size: 10 } },
-        pointLabels: { font: { size: 11, weight: '600' } }, grid: { color: '#f3f4f6' } } },
-      plugins: { legend: { labels: { font: { size: 11 } } } }
+      responsive:true, maintainAspectRatio:false,
+      scales: { r: { min:0, max:10, ticks:{ stepSize:2, font:{size:9}, color:'#9CA3AF' },
+        pointLabels:{ font:{size:10.5, weight:'500'}, color:'#374151' },
+        grid:{ color:'#F3F4F6' }, angleLines:{ color:'#F3F4F6' } } },
+      plugins:{ legend:{ labels:{ font:{size:11}, color:'#6B7280', boxWidth:10 } } }
     }
   });
 }
 
-// ── Health dimension bars ─────────────────────────────────────────────────
+// ── Health dimensions ─────────────────────────────────────────────────────
 function renderHealthDimensions(dims) {
-  const colors = { 2: 'bg-red-brand', 3: 'bg-red-brand', 4: 'bg-gold-brand', 5: 'bg-gold-brand', 6: 'bg-green-500' };
   document.getElementById('health-dimensions').innerHTML = Object.entries(dims).map(([dim, score]) => {
     const pct = (score / 10) * 100;
-    const col = colors[Math.floor(score)] || 'bg-green-500';
+    const col = score <= 3 ? '#DC2626' : score <= 5 ? '#B45309' : '#16A34A';
+    const tcol = score <= 3 ? 'text-[#DC2626]' : score <= 5 ? 'text-[#B45309]' : 'text-[#16A34A]';
     return `
       <div>
-        <div class="flex items-center justify-between mb-1">
-          <span class="text-sm text-gray-700">${dim}</span>
-          <span class="text-sm font-bold ${score <= 4 ? 'text-red-brand' : score <= 6 ? 'text-gold-brand' : 'text-green-600'}">${score}/10</span>
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs text-gray-600">${dim}</span>
+          <span class="mono text-xs font-medium ${tcol}">${score}/10</span>
         </div>
-        <div class="prog-bg">
-          <div class="prog-bar ${col}" style="width:0%" data-w="${pct}%"></div>
+        <div class="prog-track">
+          <div class="prog-fill" style="width:0%;background:${col}" data-w="${pct}%"></div>
         </div>
       </div>`;
   }).join('');
-  // Animate after DOM paint
   setTimeout(() => {
-    document.querySelectorAll('.prog-bar[data-w]').forEach(el => {
-      el.style.width = el.dataset.w;
-    });
+    document.querySelectorAll('.prog-fill[data-w]').forEach(el => el.style.width = el.dataset.w);
   }, 80);
 }
 
-// ── News ──────────────────────────────────────────────────────────────────
+// ── News ─────────────────────────────────────────────────────────────────
 function renderNews(articles, filter) {
   const filtered = filter === 'all' ? articles : articles.filter(a => a.category === filter);
   const container = document.getElementById('news-grid');
   if (!filtered.length) {
     container.innerHTML = `
-      <div class="col-span-full card text-center py-10">
-        <p class="text-3xl mb-2">📭</p>
-        <p class="font-medium text-gray-600">${articles.length === 0 ? 'News temporarily unavailable' : 'No articles in this category'}</p>
-        <p class="text-sm text-gray-400 mt-1">Click <strong>Refresh</strong> to fetch the latest news from Google News RSS.</p>
+      <div class="col-span-full card text-center py-12">
+        <p class="text-sm font-medium text-gray-600 mb-1">${articles.length === 0 ? 'News temporarily unavailable' : 'No articles in this category'}</p>
+        <p class="text-xs text-gray-400">Click <strong>Refresh</strong> to fetch the latest news from Google News RSS.</p>
       </div>`;
     return;
   }
-  const catColor = { hakshan: 'badge-red', competitor: 'badge-gold', industry: 'badge-blue' };
-  const catLabel = { hakshan: 'Hakshan', competitor: 'Competitor', industry: 'Industry' };
+  const catTag = { hakshan:'tag-red', competitor:'tag-amber', industry:'tag-blue' };
+  const catLabel = { hakshan:'Hakshan', competitor:'Competitor', industry:'Industry' };
   container.innerHTML = filtered.map(a => `
-    <a href="${sanitizeLink(a.link)}" target="_blank" rel="noopener noreferrer" class="news-card">
+    <a href="${sanitizeLink(a.link)}" target="_blank" rel="noopener noreferrer"
+      class="block bg-white border border-gray-200 rounded-lg p-4 cursor-pointer transition-all duration-150 hover:border-gray-300 hover:shadow-sm flex flex-col gap-2.5">
       <div class="flex items-start justify-between gap-2">
-        <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-3 flex-1">${esc(a.title)}</h3>
-        <svg class="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+        <h3 class="text-sm font-medium text-gray-900 leading-snug line-clamp-2 flex-1">${esc(a.title)}</h3>
+        <svg class="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
         </svg>
       </div>
       ${a.description ? `<p class="text-xs text-gray-500 line-clamp-2 flex-1">${esc(a.description)}</p>` : ''}
       <div class="flex items-center gap-2 pt-2 border-t border-gray-50 mt-auto">
-        <span class="badge ${catColor[a.category] || 'badge-gray'} text-xs">${catLabel[a.category] || a.category}</span>
-        ${a.source ? `<span class="text-xs text-gray-500 truncate max-w-[120px] font-medium">${esc(a.source)}</span>` : ''}
-        <span class="text-xs text-gray-400 ml-auto">${fmtDate(a.pub_date)}</span>
+        <span class="tag ${catTag[a.category] || 'tag-gray'}">${catLabel[a.category] || a.category}</span>
+        ${a.source ? `<span class="text-xs text-gray-500 truncate max-w-[110px]">${esc(a.source)}</span>` : ''}
+        <span class="mono text-xs text-gray-400 ml-auto">${fmtDate(a.pub_date)}</span>
       </div>
     </a>
   `).join('');
@@ -691,109 +664,116 @@ function renderNews(articles, filter) {
 
 function filterNews(cat, btn) {
   activeFilter = cat;
-  document.querySelectorAll('#news-section .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('#news-section .tab').forEach(b => b.classList.toggle('active', b === btn));
   renderNews(allNews, cat);
 }
 
 // ── Social Platforms ──────────────────────────────────────────────────────
 function renderSocialPlatforms(sm) {
   const platforms = [
-    { icon:'📸', name:'Instagram', handle:sm.instagram.handle, value:sm.instagram.followers.toLocaleString()+' followers',
-      status:sm.instagram.status, label:sm.instagram.label, note:sm.instagram.note,
-      missing:sm.instagram.missing, best:sm.instagram.best_content },
-    { icon:'👥', name:'Facebook',  handle:sm.facebook.page, value:sm.facebook.likes.toLocaleString()+' likes',
-      status:sm.facebook.status, label:sm.facebook.label, note:sm.facebook.note,
-      missing:sm.facebook.missing, best:sm.facebook.best_content },
-    { icon:'🎵', name:'TikTok',   handle:'—', value:'0 followers',
-      status:sm.tiktok.status, label:sm.tiktok.label, note:sm.tiktok.note, missing:'', best:'' },
-    { icon:'📕', name:'小红书 XHS', handle:'—', value:'0 followers',
-      status:sm.xiaohongshu.status, label:sm.xiaohongshu.label, note:sm.xiaohongshu.note, missing:'', best:'' },
+    { color:'#E1306C', name:'Instagram', handle:sm.instagram.handle,
+      value:sm.instagram.followers.toLocaleString(), unit:'followers',
+      tagCls: sm.instagram.status==='absent' ? 'tag-red' : 'tag-amber',
+      label:sm.instagram.label, note:sm.instagram.note,
+      best:sm.instagram.best_content, missing:sm.instagram.missing },
+    { color:'#1877F2', name:'Facebook', handle:sm.facebook.page,
+      value:sm.facebook.likes.toLocaleString(), unit:'likes',
+      tagCls:'tag-amber', label:sm.facebook.label, note:sm.facebook.note,
+      best:sm.facebook.best_content, missing:sm.facebook.missing },
+    { color:'#000', name:'TikTok', handle:'Not on platform',
+      value:'0', unit:'followers',
+      tagCls:'tag-red', label:sm.tiktok.label, note:sm.tiktok.note,
+      best:'', missing:'' },
+    { color:'#FF2442', name:'小红书 XHS', handle:'Not on platform',
+      value:'0', unit:'followers',
+      tagCls:'tag-red', label:sm.xiaohongshu.label, note:sm.xiaohongshu.note,
+      best:'', missing:'' },
   ];
-  const bc = s => s === 'absent' ? 'badge-red' : 'badge-gold';
   document.getElementById('social-platforms').innerHTML = platforms.map(p => `
-    <div class="card-sm lift mb-3">
-      <div class="flex items-center gap-2 mb-2">
-        <span class="text-xl">${p.icon}</span>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="font-semibold text-sm text-gray-900">${p.name}</span>
-            <span class="badge ${bc(p.status)}">${p.label}</span>
-          </div>
-          <p class="text-xs text-gray-500 truncate">${p.handle}</p>
+    <div class="card">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span style="width:8px;height:8px;border-radius:50%;background:${p.color};display:inline-block;flex-shrink:0"></span>
+          <span class="text-xs font-medium text-gray-800">${p.name}</span>
         </div>
+        <span class="tag ${p.tagCls}">${p.label}</span>
       </div>
-      <p class="text-xl font-extrabold text-gray-900">${p.value}</p>
-      <p class="text-xs text-gray-400 mt-1 leading-snug">${esc(p.note)}</p>
-      ${p.best ? `<p class="text-xs text-green-700 mt-1.5">✓ ${esc(p.best)}</p>` : ''}
-      ${p.missing ? `<p class="text-xs text-gold-brand mt-0.5">⚠ ${esc(p.missing)}</p>` : ''}
+      <p class="mono text-xl font-semibold text-gray-900 mb-0.5">${p.value} <span class="text-xs font-normal text-gray-400 not-mono" style="font-family:Inter">${p.unit}</span></p>
+      <p class="text-xs text-gray-400 mb-1.5">${p.handle}</p>
+      <p class="text-xs text-gray-500 leading-snug">${esc(p.note)}</p>
+      ${p.best ? `<p class="text-xs text-[#16A34A] mt-1.5 flex items-start gap-1">
+        <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
+        ${esc(p.best)}</p>` : ''}
+      ${p.missing ? `<p class="text-xs text-[#B45309] mt-0.5 flex items-start gap-1">
+        <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+        ${esc(p.missing)}</p>` : ''}
     </div>
   `).join('');
 }
 
-// ── Growth chart ─────────────────────────────────────────────────────────
+// ── Growth chart ──────────────────────────────────────────────────────────
 function renderGrowthChart(sg) {
   const ctx = document.getElementById('chart-growth').getContext('2d');
   if (charts.growth) charts.growth.destroy();
   charts.growth = new Chart(ctx, {
-    type: 'line',
+    type:'line',
     data: {
       labels: sg.labels,
       datasets: [
-        { label: 'Instagram', data: sg.instagram, borderColor: '#E1306C', backgroundColor: 'rgba(225,48,108,.08)', fill: true, tension: .4, pointRadius: 4 },
-        { label: 'Facebook',  data: sg.facebook,  borderColor: '#1877F2', backgroundColor: 'rgba(24,119,242,.06)', fill: true, tension: .4, pointRadius: 4 },
+        { label:'Instagram', data:sg.instagram, borderColor:'#E1306C', backgroundColor:'rgba(225,48,108,.06)', fill:true, tension:.4, pointRadius:3, pointHoverRadius:5 },
+        { label:'Facebook',  data:sg.facebook,  borderColor:'#1877F2', backgroundColor:'rgba(24,119,242,.05)', fill:true, tension:.4, pointRadius:3, pointHoverRadius:5 },
       ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { y: { beginAtZero: false, ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } },
-      plugins: { legend: { labels: { font: { size: 11 } } } }
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        y:{ beginAtZero:false, ticks:{font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'} },
+        x:{ ticks:{font:{size:10},color:'#9CA3AF'}, grid:{display:false} }
+      },
+      plugins:{ legend:{ labels:{ font:{size:11}, color:'#6B7280', boxWidth:10, usePointStyle:true } } }
     }
   });
 }
 
-// ── Content type chart ────────────────────────────────────────────────────
+// ── Content chart ──────────────────────────────────────────────────────────
 function renderContentChart(cb) {
   const ctx = document.getElementById('chart-content').getContext('2d');
   if (charts.content) charts.content.destroy();
   charts.content = new Chart(ctx, {
-    type: 'bar',
+    type:'bar',
     data: {
       labels: cb.types,
-      datasets: [{
-        label: '% of posts',
-        data: cb.percentages,
-        backgroundColor: ['#B91C1C','#D97706','#059669','#2563EB','#7C3AED'],
-        borderRadius: 6,
-      }]
+      datasets:[{ label:'% of posts', data:cb.percentages,
+        backgroundColor:['#DC2626','#D97706','#059669','#2563EB','#7C3AED'],
+        borderRadius:4, borderSkipped:false }]
     },
     options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
       scales: {
-        x: { max: 60, ticks: { callback: v => v + '%', font: { size: 10 } } },
-        y: { ticks: { font: { size: 10 } } }
+        x:{ max:60, ticks:{callback:v=>v+'%', font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'} },
+        y:{ ticks:{font:{size:10},color:'#6B7280'}, grid:{display:false} }
       },
-      plugins: { legend: { display: false } }
+      plugins:{ legend:{display:false} }
     }
   });
 }
 
 // ── Posting times ─────────────────────────────────────────────────────────
-function renderPostingTimes(sm) {
+function renderPostingTimes() {
   const times = [
-    { day:'Mon', time:'8am',  platform:'Facebook', tip:'Morning scroll' },
-    { day:'Tue', time:'12pm', platform:'Instagram', tip:'Lunch break peak' },
-    { day:'Wed', time:'12pm', platform:'Facebook', tip:'Mid-week lunch' },
-    { day:'Thu', time:'7pm',  platform:'Instagram', tip:'Post-dinner browse' },
-    { day:'Sat', time:'11am', platform:'Instagram', tip:'Weekend discovery' },
-    { day:'Sun', time:'6pm',  platform:'Facebook', tip:'Evening wind-down' },
+    {day:'Mon',time:'8am', platform:'Facebook',tip:'Morning scroll'},
+    {day:'Tue',time:'12pm',platform:'Instagram',tip:'Lunch peak'},
+    {day:'Wed',time:'12pm',platform:'Facebook',tip:'Mid-week lunch'},
+    {day:'Thu',time:'7pm', platform:'Instagram',tip:'Post-dinner'},
+    {day:'Sat',time:'11am',platform:'Instagram',tip:'Weekend browse'},
+    {day:'Sun',time:'6pm', platform:'Facebook',tip:'Evening wind-down'},
   ];
   document.getElementById('posting-times').innerHTML = times.map(t => `
-    <div class="bg-gray-50 rounded-xl p-3 text-center">
-      <p class="font-bold text-red-brand text-sm">${t.day}</p>
-      <p class="text-xl font-extrabold text-gray-900 mt-0.5">${t.time}</p>
+    <div class="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+      <p class="text-xs font-semibold text-[#DC2626] mb-1">${t.day}</p>
+      <p class="mono text-lg font-semibold text-gray-900">${t.time}</p>
       <p class="text-xs font-medium text-gray-600 mt-1">${t.platform}</p>
-      <p class="text-xs text-gray-400 mt-0.5">${t.tip}</p>
+      <p class="text-xs text-gray-400 mt-0.5 leading-tight">${t.tip}</p>
     </div>
   `).join('');
 }
@@ -801,17 +781,16 @@ function renderPostingTimes(sm) {
 // ── Branch tabs ───────────────────────────────────────────────────────────
 function renderBranchTabs(branches) {
   document.getElementById('branch-tabs').innerHTML = branches.map(b => `
-    <button class="tab-btn ${b.id === activeBranch ? 'active' : ''}"
-      onclick="switchBranch('${b.id}', this)">
+    <button class="tab ${b.id === activeBranch ? 'active' : ''}" onclick="switchBranch('${b.id}',this)">
       ${b.name.split(',')[0]}
-      ${b.id === 'sri_petaling' ? '<span class="ml-1 badge badge-purple text-xs">New</span>' : ''}
+      ${b.id === 'sri_petaling' ? '<span class="ml-1 tag tag-purple" style="font-size:.6rem">New</span>' : ''}
     </button>
   `).join('');
 }
 
 function switchBranch(id, btn) {
   activeBranch = id;
-  document.querySelectorAll('#branch-tabs .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  document.querySelectorAll('#branch-tabs .tab').forEach(b => b.classList.toggle('active', b === btn));
   if (DATA) renderBranchDetail(DATA.branches, id, DATA.chart_data.sentiment_by_branch);
 }
 
@@ -819,49 +798,59 @@ function renderBranchDetail(branches, branchId, sentimentData) {
   const b = branches.find(x => x.id === branchId);
   if (!b) return;
   const sent = sentimentData[branchId] || {};
+  const roleTag = {Flagship:'tag-red',Active:'tag-green',Newest:'tag-purple','Active-Growing':'tag-blue'}[b.role] || 'tag-gray';
   document.getElementById('branch-detail').innerHTML = `
     <div class="card">
       <div class="flex items-start justify-between mb-3">
         <div>
-          <h3 class="font-bold text-gray-900">${esc(b.name)}</h3>
-          <p class="text-xs text-gray-500 mt-0.5">${esc(b.address)}</p>
+          <h3 class="font-semibold text-gray-900 text-sm">${esc(b.name)}</h3>
+          <p class="text-xs text-gray-400 mt-0.5">${esc(b.address)}</p>
         </div>
-        <span class="badge ${roleBadge(b.role)}">${b.role}</span>
+        <span class="tag ${roleTag} ml-2 flex-shrink-0">${b.role}</span>
       </div>
-      <div class="flex items-center gap-3 mb-4">
-        <span class="text-2xl font-extrabold text-gray-900">${b.rating || '—'}</span>
-        <span class="text-xl">${makeStars(b.rating)}</span>
-        <span class="badge badge-gray">${b.review_count} reviews</span>
+      <div class="flex items-center gap-2.5 mb-4">
+        <span class="mono text-xl font-semibold text-gray-900">${b.rating || '—'}</span>
+        <span>${makeStars(b.rating)}</span>
+        <span class="tag tag-gray">${b.review_count} reviews</span>
       </div>
-      <!-- Sentiment mini-chart -->
       ${sent.positive !== undefined ? `
       <div class="mb-4">
-        <p class="text-xs font-semibold text-gray-600 mb-2">Sentiment Breakdown</p>
+        <p class="text-xs font-medium text-gray-500 mb-2">Sentiment Breakdown</p>
         <div class="space-y-1.5">
-          ${sentBar('Positive', sent.positive, 'bg-green-500')}
-          ${sentBar('Neutral',  sent.neutral,  'bg-gray-300')}
-          ${sentBar('Negative', sent.negative, 'bg-red-brand')}
+          ${sentBar('Positive', sent.positive, '#16A34A')}
+          ${sentBar('Neutral',  sent.neutral,  '#9CA3AF')}
+          ${sentBar('Negative', sent.negative, '#DC2626')}
         </div>
       </div>` : ''}
-      <!-- Highlights -->
       <div class="mb-3">
-        <p class="text-xs font-semibold text-gray-600 mb-1.5">What customers love</p>
-        ${b.highlights.map(h => `<p class="text-xs text-green-700 flex items-start gap-1.5 mb-1"><span class="flex-shrink-0">✓</span>${esc(h)}</p>`).join('')}
+        <p class="text-xs font-medium text-gray-500 mb-1.5">What customers love</p>
+        ${b.highlights.map(h => `
+          <p class="text-xs text-gray-600 flex items-start gap-1.5 mb-1">
+            <svg class="w-3 h-3 text-[#16A34A] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>${esc(h)}</p>`).join('')}
       </div>
       ${b.watch_areas && b.watch_areas.length ? `
       <div class="mb-3">
-        <p class="text-xs font-semibold text-gray-600 mb-1.5">Watch areas</p>
-        ${b.watch_areas.map(w => `<p class="text-xs text-gold-brand flex items-start gap-1.5 mb-1"><span class="flex-shrink-0">⚠</span>${esc(w)}</p>`).join('')}
+        <p class="text-xs font-medium text-gray-500 mb-1.5">Watch areas</p>
+        ${b.watch_areas.map(w => `
+          <p class="text-xs text-[#B45309] flex items-start gap-1.5 mb-1">
+            <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+            </svg>${esc(w)}</p>`).join('')}
       </div>` : ''}
       ${b.best_dishes && b.best_dishes.length ? `
-      <div>
-        <p class="text-xs font-semibold text-gray-600 mb-1.5">Best dishes here</p>
-        <div class="flex flex-wrap gap-1.5">${b.best_dishes.map(d => `<span class="badge badge-red">${esc(d)}</span>`).join('')}</div>
+      <div class="mb-3">
+        <p class="text-xs font-medium text-gray-500 mb-1.5">Best dishes here</p>
+        <div class="flex flex-wrap gap-1.5">${b.best_dishes.map(d => `<span class="tag tag-red">${esc(d)}</span>`).join('')}</div>
       </div>` : ''}
-      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name + ' Malaysia')}"
+      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name+' Malaysia')}"
          target="_blank" rel="noopener noreferrer"
-         class="inline-flex items-center gap-1 mt-4 text-xs text-red-brand hover:underline">
-        📍 View on Google Maps ↗
+         class="inline-flex items-center gap-1 mt-3 text-xs text-[#DC2626] hover:underline cursor-pointer">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>
+        </svg>
+        View on Google Maps
       </a>
     </div>`;
 }
@@ -869,11 +858,11 @@ function renderBranchDetail(branches, branchId, sentimentData) {
 function sentBar(label, pct, color) {
   return `
     <div class="flex items-center gap-2">
-      <span class="w-14 text-xs text-gray-600 flex-shrink-0">${label}</span>
-      <div class="flex-1 prog-bg">
-        <div class="prog-bar ${color}" style="width:${pct}%"></div>
+      <span class="w-14 text-xs text-gray-500 flex-shrink-0">${label}</span>
+      <div class="flex-1 prog-track">
+        <div class="prog-fill" style="width:${pct}%;background:${color}"></div>
       </div>
-      <span class="w-8 text-xs font-bold text-right">${pct}%</span>
+      <span class="mono w-8 text-xs font-medium text-right text-gray-600">${pct}%</span>
     </div>`;
 }
 
@@ -882,24 +871,24 @@ function renderReviewTrendChart(rt) {
   const ctx = document.getElementById('chart-reviews').getContext('2d');
   if (charts.reviews) charts.reviews.destroy();
   charts.reviews = new Chart(ctx, {
-    type: 'bar',
+    type:'bar',
     data: {
       labels: rt.labels,
       datasets: [
-        { label:'Kepong',      data:rt.kepong,       backgroundColor:'#B91C1C', stack:'s' },
-        { label:'Subang',      data:rt.subang,       backgroundColor:'#D97706', stack:'s' },
-        { label:'Puchong',     data:rt.puchong,      backgroundColor:'#059669', stack:'s' },
-        { label:'Cheras',      data:rt.cheras,       backgroundColor:'#2563EB', stack:'s' },
-        { label:'Sri Petaling',data:rt.sri_petaling, backgroundColor:'#7C3AED', stack:'s' },
+        {label:'Kepong',       data:rt.kepong,       backgroundColor:'#DC2626', stack:'s'},
+        {label:'Subang',       data:rt.subang,       backgroundColor:'#D97706', stack:'s'},
+        {label:'Puchong',      data:rt.puchong,      backgroundColor:'#059669', stack:'s'},
+        {label:'Cheras',       data:rt.cheras,       backgroundColor:'#2563EB', stack:'s'},
+        {label:'Sri Petaling', data:rt.sri_petaling, backgroundColor:'#7C3AED', stack:'s'},
       ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
+      responsive:true, maintainAspectRatio:false,
       scales: {
-        x: { stacked: true, ticks: { font: { size: 10 } } },
-        y: { stacked: true, ticks: { font: { size: 10 } } }
+        x:{stacked:true, ticks:{font:{size:10},color:'#9CA3AF'}, grid:{display:false}},
+        y:{stacked:true, ticks:{font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'}}
       },
-      plugins: { legend: { labels: { font: { size: 10 }, boxWidth: 12 } } }
+      plugins:{ legend:{labels:{font:{size:10},color:'#6B7280',boxWidth:10,usePointStyle:true}} }
     }
   });
 }
@@ -911,11 +900,11 @@ function renderSentimentBars(branches, sentimentData) {
     if (!s.positive) return '';
     return `
       <div>
-        <p class="text-xs font-semibold text-gray-700 mb-1">${b.name.split(',')[0]}</p>
-        <div class="flex rounded-full overflow-hidden h-4 text-xs">
-          <div class="bg-green-500 flex items-center justify-center text-white font-bold" style="width:${s.positive}%">${s.positive}%</div>
-          <div class="bg-gray-200 flex items-center justify-center text-gray-600 font-bold" style="width:${s.neutral}%">${s.neutral}%</div>
-          <div class="bg-red-brand flex items-center justify-center text-white font-bold" style="width:${s.negative}%">${s.negative}%</div>
+        <p class="text-xs font-medium text-gray-600 mb-1">${b.name.split(',')[0]}</p>
+        <div class="flex rounded-full overflow-hidden h-3 text-xs">
+          <div style="width:${s.positive}%;background:#16A34A" class="flex items-center justify-center text-white font-semibold" style="font-size:9px">${s.positive}%</div>
+          <div style="width:${s.neutral}%;background:#E5E7EB"  class="flex items-center justify-center text-gray-500 font-semibold" style="font-size:9px">${s.neutral}%</div>
+          <div style="width:${s.negative}%;background:#DC2626" class="flex items-center justify-center text-white font-semibold" style="font-size:9px">${s.negative}%</div>
         </div>
       </div>`;
   }).join('');
@@ -923,81 +912,86 @@ function renderSentimentBars(branches, sentimentData) {
 
 // ── Competitor table ──────────────────────────────────────────────────────
 function renderCompetitorTable(competitors) {
-  const hakshan = { name:'客善 Hakshan', location:'Klang Valley (5 branches)',
+  const hakshan = { name:'客善 Hakshan', location:'Klang Valley (5)',
     instagram_followers:DATA.social_media.instagram.followers,
-    facebook_likes:DATA.social_media.facebook.likes, tiktok:false,
-    threat_label:'—', threat_level:'self', posts_per_month:'4–5' };
+    facebook_likes:DATA.social_media.facebook.likes, tiktok:false, posts_per_month:'4–5' };
   const all = [hakshan, ...competitors];
   document.getElementById('competitor-table').innerHTML = `
     <div class="overflow-x-auto">
       <table class="w-full text-xs">
         <thead>
-          <tr class="text-gray-400 uppercase tracking-wide text-left">
-            <th class="pb-2 pr-3 font-semibold">Brand</th>
-            <th class="pb-2 px-2 font-semibold text-right">IG</th>
-            <th class="pb-2 px-2 font-semibold text-right">FB</th>
-            <th class="pb-2 px-2 font-semibold text-center">TikTok</th>
-            <th class="pb-2 pl-2 font-semibold text-center">Posts/mo</th>
+          <tr class="text-gray-400 uppercase tracking-widest" style="font-size:.625rem">
+            <th class="pb-2 pr-3 text-left font-medium">Brand</th>
+            <th class="pb-2 px-2 text-right font-medium">IG</th>
+            <th class="pb-2 px-2 text-right font-medium">FB</th>
+            <th class="pb-2 px-2 text-center font-medium">TikTok</th>
+            <th class="pb-2 pl-2 text-center font-medium">Posts/mo</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-50">
+        <tbody>
           ${all.map((c,i) => `
-            <tr class="${i===0 ? 'bg-red-light/40' : 'hover:bg-gray-50'} transition-colors">
+            <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors duration-100 cursor-default">
               <td class="py-2 pr-3">
-                <p class="font-bold ${i===0 ? 'text-red-brand' : 'text-gray-800'}">${esc(c.name)}</p>
+                <p class="font-semibold ${i===0 ? 'text-[#DC2626]' : 'text-gray-800'}">${esc(c.name)}</p>
                 <p class="text-gray-400">${esc(c.location||'')}</p>
               </td>
-              <td class="py-2 px-2 text-right font-semibold">${c.instagram_followers ? c.instagram_followers.toLocaleString() : '—'}</td>
-              <td class="py-2 px-2 text-right">${c.facebook_likes ? c.facebook_likes.toLocaleString() : '—'}</td>
-              <td class="py-2 px-2 text-center">${c.tiktok ? '✓' : '<span class="text-gray-300">✗</span>'}</td>
-              <td class="py-2 pl-2 text-center font-semibold">${c.posts_per_month || '—'}</td>
+              <td class="py-2 px-2 text-right mono font-medium text-gray-700">${c.instagram_followers ? c.instagram_followers.toLocaleString() : '—'}</td>
+              <td class="py-2 px-2 text-right mono text-gray-500">${c.facebook_likes ? c.facebook_likes.toLocaleString() : '—'}</td>
+              <td class="py-2 px-2 text-center">${c.tiktok ? '<span class="text-[#16A34A]">✓</span>' : '<span class="text-gray-200">✗</span>'}</td>
+              <td class="py-2 pl-2 text-center mono font-medium text-gray-600">${c.posts_per_month || '—'}</td>
             </tr>`).join('')}
         </tbody>
       </table>
     </div>`;
 }
 
-// ── Competitor bar chart ──────────────────────────────────────────────────
+// ── Competitor chart ──────────────────────────────────────────────────────
 function renderCompetitorChart(cc) {
   const ctx = document.getElementById('chart-competitor').getContext('2d');
   if (charts.competitor) charts.competitor.destroy();
   charts.competitor = new Chart(ctx, {
-    type: 'bar',
+    type:'bar',
     data: {
       labels: cc.labels,
       datasets: [
-        { label:'Hakshan',    data:cc.hakshan,    backgroundColor:'#B91C1C', borderRadius:4 },
-        { label:'Hakka KL',   data:cc.hakka_kl,   backgroundColor:'#D97706', borderRadius:4 },
-        { label:'Hakka Pass.',data:cc.hakka_pass, backgroundColor:'#6B7280', borderRadius:4 },
+        {label:'Hakshan',    data:cc.hakshan,    backgroundColor:'#DC2626', borderRadius:4},
+        {label:'Hakka KL',   data:cc.hakka_kl,   backgroundColor:'#D97706', borderRadius:4},
+        {label:'Hakka Pass.',data:cc.hakka_pass, backgroundColor:'#9CA3AF', borderRadius:4},
       ]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      scales: { y: { ticks: { font: { size: 10 } } }, x: { ticks: { font: { size: 10 } } } },
-      plugins: { legend: { labels: { font: { size: 11 }, boxWidth: 12 } } }
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        y:{ticks:{font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'}},
+        x:{ticks:{font:{size:10},color:'#6B7280'}, grid:{display:false}}
+      },
+      plugins:{ legend:{labels:{font:{size:11},color:'#6B7280',boxWidth:10,usePointStyle:true}} }
     }
   });
 }
 
-// ── Competitor strategy cards ─────────────────────────────────────────────
+// ── Competitor strategy ───────────────────────────────────────────────────
 function renderCompetitorStrategy(competitors) {
   document.getElementById('competitor-strategy').innerHTML = competitors.map(c => `
-    <div class="card-sm">
+    <div class="card">
       <div class="flex items-start justify-between mb-2">
-        <p class="font-bold text-gray-900">${esc(c.name)}</p>
-        <span class="badge ${c.threat_level==='high_puchong' ? 'badge-red' : 'badge-gold'}">${esc(c.threat_label)}</span>
+        <p class="font-semibold text-gray-900 text-sm">${esc(c.name)}</p>
+        <span class="tag ${c.threat_level==='high_puchong' ? 'tag-red' : 'tag-amber'} ml-2 flex-shrink-0">${esc(c.threat_label)}</span>
       </div>
-      <p class="text-xs text-gray-500 mb-3">${esc(c.location)} · Est. ${c.est}</p>
-      <p class="text-xs font-semibold text-gray-600 mb-1">Content strategy</p>
-      <p class="text-xs text-gray-700 mb-3">${esc(c.content_strategy_note)}</p>
-      <div class="grid grid-cols-2 gap-2 text-xs">
+      <p class="text-xs text-gray-400 mb-3">${esc(c.location)} · Est. ${c.est}</p>
+      <p class="text-xs font-medium text-gray-500 mb-1">Content strategy</p>
+      <p class="text-xs text-gray-600 mb-3 leading-relaxed">${esc(c.content_strategy_note)}</p>
+      <div class="grid grid-cols-2 gap-3 text-xs">
         <div>
-          <p class="font-semibold text-gray-500 mb-1">Strengths</p>
-          ${c.strengths.map(s => `<p class="text-green-700 flex items-start gap-1"><span>✓</span>${esc(s)}</p>`).join('')}
+          <p class="font-medium text-gray-500 mb-1.5">Strengths</p>
+          ${c.strengths.map(s => `
+            <p class="text-[#16A34A] flex items-start gap-1 mb-1">
+              <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
+              ${esc(s)}</p>`).join('')}
         </div>
         <div>
-          <p class="font-semibold text-gray-500 mb-1">Weaknesses</p>
-          ${c.weaknesses.map(w => `<p class="text-gray-500 flex items-start gap-1"><span>−</span>${esc(w)}</p>`).join('')}
+          <p class="font-medium text-gray-500 mb-1.5">Weaknesses</p>
+          ${c.weaknesses.map(w => `<p class="text-gray-400 flex items-start gap-1 mb-1"><span class="flex-shrink-0">−</span>${esc(w)}</p>`).join('')}
         </div>
       </div>
     </div>
@@ -1007,10 +1001,10 @@ function renderCompetitorStrategy(competitors) {
 // ── KPI Progress ──────────────────────────────────────────────────────────
 function renderKPIProgress(kpi) {
   const items = [
-    { label:'Instagram', icon:'📸', ...kpi.instagram_followers, unit:'followers', editKey:'ig_followers' },
-    { label:'Facebook',  icon:'👥', ...kpi.facebook_likes,      unit:'likes',     editKey:'fb_likes' },
-    { label:'TikTok',    icon:'🎵', ...kpi.tiktok_followers,    unit:'followers', editKey:'tiktok' },
-    { label:'XHS',       icon:'📕', ...kpi.xhs_followers,       unit:'followers', editKey:'xhs' },
+    {label:'Instagram', dot:'#E1306C', ...kpi.instagram_followers, unit:'followers', editKey:'ig_followers'},
+    {label:'Facebook',  dot:'#1877F2', ...kpi.facebook_likes,      unit:'likes',     editKey:'fb_likes'},
+    {label:'TikTok',    dot:'#000',    ...kpi.tiktok_followers,    unit:'followers', editKey:'tiktok'},
+    {label:'XHS',       dot:'#FF2442', ...kpi.xhs_followers,       unit:'followers', editKey:'xhs'},
   ];
   document.getElementById('kpi-progress').innerHTML = items.map(k => {
     const pct3m  = Math.min(100, Math.round((k.current / k.target_3m)  * 100));
@@ -1018,33 +1012,31 @@ function renderKPIProgress(kpi) {
     return `
       <div class="card">
         <div class="flex items-center gap-2 mb-3">
-          <span class="text-xl">${k.icon}</span>
-          <span class="font-bold text-gray-800">${k.label}</span>
+          <span style="width:7px;height:7px;border-radius:50%;background:${k.dot};display:inline-block"></span>
+          <span class="text-xs font-medium text-gray-600">${k.label}</span>
         </div>
-        <p class="text-2xl font-extrabold text-gray-900 mb-0.5">${k.current.toLocaleString()}</p>
-        <p class="text-xs text-gray-500 mb-3">${k.unit}</p>
-
-        <div class="space-y-2.5">
+        <p class="mono text-2xl font-semibold text-gray-900 mb-0.5">${k.current.toLocaleString()}</p>
+        <p class="text-xs text-gray-400 mb-3">${k.unit}</p>
+        <div class="space-y-2">
           <div>
             <div class="flex justify-between text-xs mb-1">
-              <span class="text-gray-500">3-month target: <strong>${k.target_3m.toLocaleString()}</strong></span>
-              <span class="font-bold ${pct3m >= 100 ? 'text-green-600' : 'text-gold-brand'}">${pct3m}%</span>
+              <span class="text-gray-400">3-month target: <span class="mono font-medium text-gray-600">${k.target_3m.toLocaleString()}</span></span>
+              <span class="mono font-medium ${pct3m>=100?'text-[#16A34A]':'text-[#B45309]'}">${pct3m}%</span>
             </div>
-            <div class="prog-bg"><div class="prog-bar bg-gold-brand" style="width:${pct3m}%"></div></div>
+            <div class="prog-track"><div class="prog-fill" style="width:${pct3m}%;background:${pct3m>=100?'#16A34A':'#D97706'}"></div></div>
           </div>
           <div>
             <div class="flex justify-between text-xs mb-1">
-              <span class="text-gray-500">12-month target: <strong>${k.target_12m.toLocaleString()}</strong></span>
-              <span class="font-bold ${pct12m >= 100 ? 'text-green-600' : 'text-red-brand'}">${pct12m}%</span>
+              <span class="text-gray-400">12-month target: <span class="mono font-medium text-gray-600">${k.target_12m.toLocaleString()}</span></span>
+              <span class="mono font-medium ${pct12m>=100?'text-[#16A34A]':'text-[#DC2626]'}">${pct12m}%</span>
             </div>
-            <div class="prog-bg"><div class="prog-bar bg-red-brand" style="width:${pct12m}%"></div></div>
+            <div class="prog-track"><div class="prog-fill" style="width:${pct12m}%;background:${pct12m>=100?'#16A34A':'#DC2626'}"></div></div>
           </div>
         </div>
-
         <div class="edit-overlay mt-3 flex-col gap-1">
-          <label class="text-xs text-gray-500 font-medium">Update current ${k.unit}:</label>
-          <input type="number" value="${k.current}" placeholder="${k.current}"
-            class="w-full border border-gold-brand rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-gold-brand"
+          <label class="text-xs text-gray-400 font-medium">Update current ${k.unit}:</label>
+          <input type="number" value="${k.current}"
+            class="w-full border border-[#DC2626] rounded-md px-2 py-1.5 text-sm mono focus:outline-none focus:ring-1 focus:ring-[#DC2626]"
             onblur="saveKPIEdit('${k.editKey}', this.value)"
             onkeydown="if(event.key==='Enter') this.blur()"/>
         </div>
@@ -1054,18 +1046,21 @@ function renderKPIProgress(kpi) {
 
 // ── Recommendations ───────────────────────────────────────────────────────
 function renderRecommendations(recs) {
-  [['h1', recs.h1_quick_wins], ['h2', recs.h2_growth], ['h3', recs.h3_brand_building]].forEach(([id, items]) => {
-    document.getElementById('recs-' + id).innerHTML = items.map((item, i) => `
-      <div class="flex items-start gap-2.5 p-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-        <span class="flex-shrink-0 w-5 h-5 rounded-full ${id==='h1'?'bg-red-light text-red-dark':id==='h2'?'bg-gold-light text-gold-dark':'bg-green-100 text-green-800'} text-xs flex items-center justify-center font-bold">${i+1}</span>
-        <p class="text-sm text-gray-700 leading-snug">${esc(item)}</p>
+  const colors = { h1:'#DC2626', h2:'#B45309', h3:'#16A34A' };
+  const bgcols = { h1:'#FEF2F2', h2:'#FFFBEB', h3:'#F0FDF4' };
+  [['h1',recs.h1_quick_wins],['h2',recs.h2_growth],['h3',recs.h3_brand_building]].forEach(([id, items]) => {
+    document.getElementById('recs-'+id).innerHTML = items.map((item,i) => `
+      <div class="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-gray-50 transition-colors duration-150 cursor-default">
+        <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold"
+          style="background:${bgcols[id]};color:${colors[id]}">${i+1}</span>
+        <p class="text-xs text-gray-600 leading-relaxed">${esc(item)}</p>
       </div>`).join('');
   });
 }
 
 function switchRecTab(id, btn) {
-  ['h1','h2','h3'].forEach(h => document.getElementById('recs-'+h).classList.toggle('hidden', h !== id));
-  document.querySelectorAll('#strategy .tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+  ['h1','h2','h3'].forEach(h => document.getElementById('recs-'+h).classList.toggle('hidden', h!==id));
+  document.querySelectorAll('#strategy .tab').forEach(b => b.classList.toggle('active', b===btn));
 }
 
 // ── KPI Table ─────────────────────────────────────────────────────────────
@@ -1075,24 +1070,26 @@ function renderKPITable(kpis) {
     ['Facebook Likes',      kpis.facebook_likes.current.toLocaleString(),      kpis.facebook_likes.target_3m.toLocaleString(),      kpis.facebook_likes.target_12m.toLocaleString()],
     ['TikTok Followers',    kpis.tiktok_followers.current.toLocaleString(),    kpis.tiktok_followers.target_3m.toLocaleString(),    kpis.tiktok_followers.target_12m.toLocaleString()],
     ['XHS Followers',       kpis.xhs_followers.current.toLocaleString(),       kpis.xhs_followers.target_3m.toLocaleString(),       kpis.xhs_followers.target_12m.toLocaleString()],
-    ['Google Review Resp.', kpis.google_response_rate.current_pct + '%', '60%', kpis.google_response_rate.target_pct + '%'],
-    ['Monthly UGC Posts',   kpis.monthly_ugc_posts.current, '25+', kpis.monthly_ugc_posts.target + '+'],
+    ['Google Review Resp.', kpis.google_response_rate.current_pct+'%',         '60%',                                               kpis.google_response_rate.target_pct+'%'],
+    ['Monthly UGC Posts',   kpis.monthly_ugc_posts.current+'',                '25+',                                               kpis.monthly_ugc_posts.target+'+'],
   ];
   document.getElementById('kpi-table').innerHTML = `
     <table class="w-full text-xs">
-      <thead><tr class="text-gray-400 uppercase tracking-wide">
-        <th class="text-left pb-2 pr-2 font-semibold">Metric</th>
-        <th class="text-right pb-2 px-2 font-semibold">Now</th>
-        <th class="text-right pb-2 px-2 font-semibold text-gold-brand">3M</th>
-        <th class="text-right pb-2 font-semibold text-green-600">12M</th>
-      </tr></thead>
-      <tbody class="divide-y divide-gray-50">
+      <thead>
+        <tr class="text-gray-400 uppercase tracking-widest" style="font-size:.6rem">
+          <th class="text-left pb-2 pr-2 font-medium">Metric</th>
+          <th class="text-right pb-2 px-2 font-medium">Now</th>
+          <th class="text-right pb-2 px-2 font-medium text-[#B45309]">3M</th>
+          <th class="text-right pb-2 font-medium text-[#16A34A]">12M</th>
+        </tr>
+      </thead>
+      <tbody>
         ${rows.map(r => `
-          <tr class="hover:bg-gray-50">
+          <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors duration-100 cursor-default">
             <td class="py-1.5 pr-2 font-medium text-gray-700">${r[0]}</td>
-            <td class="py-1.5 px-2 text-right text-gray-500">${r[1]}</td>
-            <td class="py-1.5 px-2 text-right font-semibold text-gold-brand">${r[2]}</td>
-            <td class="py-1.5 text-right font-bold text-green-600">${r[3]}</td>
+            <td class="py-1.5 px-2 text-right mono text-gray-500">${r[1]}</td>
+            <td class="py-1.5 px-2 text-right mono font-medium text-[#B45309]">${r[2]}</td>
+            <td class="py-1.5 text-right mono font-semibold text-[#16A34A]">${r[3]}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
@@ -1100,28 +1097,32 @@ function renderKPITable(kpis) {
 
 // ── Branch cards ──────────────────────────────────────────────────────────
 function renderBranchCards(branches) {
+  const roleTag = {Flagship:'tag-red',Active:'tag-green',Newest:'tag-purple','Active-Growing':'tag-blue'};
   document.getElementById('branch-cards').innerHTML = branches.map(b => `
-    <div class="card lift flex flex-col gap-3">
-      <div class="flex items-start justify-between gap-2">
-        <h3 class="font-bold text-sm text-gray-900 leading-snug">${esc(b.name)}</h3>
-        <span class="badge ${roleBadge(b.role)} flex-shrink-0">${b.role}</span>
+    <div class="card flex flex-col gap-2.5">
+      <div class="flex items-start justify-between gap-1">
+        <h3 class="font-semibold text-sm text-gray-900 leading-snug">${esc(b.name)}</h3>
+        <span class="tag ${roleTag[b.role]||'tag-gray'} flex-shrink-0 ml-1">${b.role}</span>
       </div>
-      <p class="text-xs text-gray-500 leading-relaxed">${esc(b.address)}</p>
+      <p class="text-xs text-gray-400 leading-relaxed">${esc(b.address)}</p>
       <div class="flex items-center gap-1.5">
-        <span class="text-base">${makeStars(b.rating)}</span>
-        ${b.rating ? `<span class="text-xs font-extrabold text-gray-800">${b.rating}</span>` : '<span class="text-xs text-gray-400">Not yet rated</span>'}
-        <span class="badge badge-gray ml-auto">${b.review_count}</span>
+        <span>${makeStars(b.rating)}</span>
+        ${b.rating ? `<span class="mono text-xs font-semibold text-gray-800">${b.rating}</span>` : '<span class="text-xs text-gray-300">Not rated</span>'}
+        <span class="tag tag-gray ml-auto">${b.review_count}</span>
       </div>
-      <ul class="space-y-1 flex-1">
+      <div class="flex-1">
         ${b.highlights.slice(0,2).map(h => `
-          <li class="text-xs text-gray-600 flex items-start gap-1">
-            <span class="text-green-500 flex-shrink-0 mt-0.5">✓</span>${esc(h)}
-          </li>`).join('')}
-      </ul>
+          <p class="text-xs text-gray-500 flex items-start gap-1 mb-1">
+            <svg class="w-3 h-3 text-[#16A34A] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
+            ${esc(h)}</p>`).join('')}
+      </div>
       <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name+' Malaysia')}"
          target="_blank" rel="noopener noreferrer"
-         class="inline-flex items-center gap-1 text-xs text-red-brand hover:underline mt-auto">
-        📍 Google Maps ↗
+         class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer mt-auto">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>
+        </svg>
+        Google Maps
       </a>
     </div>
   `).join('');
@@ -1130,9 +1131,8 @@ function renderBranchCards(branches) {
 // ── Dishes ────────────────────────────────────────────────────────────────
 function renderDishes(dishes) {
   document.getElementById('dishes-grid').innerHTML = dishes.map(d => `
-    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-light text-red-dark text-sm font-medium rounded-full border border-red-200">
-      🍜 ${esc(d)}
-    </span>`).join('');
+    <span class="tag tag-gray text-xs px-3 py-1.5" style="border-radius:20px">${esc(d)}</span>
+  `).join('');
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────
@@ -1149,59 +1149,52 @@ async function openModal(section) {
   }
 }
 
-function closeModal(e) {
-  document.getElementById('modal-backdrop').classList.remove('open');
-}
+function closeModal(e) { document.getElementById('modal-backdrop').classList.remove('open'); }
 
 function markdownToHtml(md) {
   return md
-    .replace(/^### (.+)$/gm,   '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm,    '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm,     '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,     '<em>$1</em>')
-    .replace(/`(.+?)`/g,       '<code>$1</code>')
-    .replace(/^> (.+)$/gm,     '<blockquote>$1</blockquote>')
-    .replace(/^- (.+)$/gm,     '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-red-brand hover:underline">$1</a>')
-    .replace(/\n{2,}/g, '</p><p>')
-    .replace(/^(?!<[hlbuap])(.+)/gm, '$1')
-    .replace(/<p><\/p>/g, '');
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code>$1</code>')
+    .replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n{2,}/g,'</p><p>')
+    .replace(/<p><\/p>/g,'');
 }
 
 // ── Edit mode ─────────────────────────────────────────────────────────────
 function toggleEditMode() {
   editMode = !editMode;
   document.body.classList.toggle('edit-mode', editMode);
+  document.getElementById('btn-edit-text').textContent = editMode ? 'Done' : 'Edit';
   const btn = document.getElementById('btn-edit');
-  btn.textContent = editMode ? '✅ Done' : '✏️ Edit';
-  btn.classList.toggle('border-gold-brand', editMode);
-  btn.classList.toggle('text-gold-brand', editMode);
+  btn.style.borderColor = editMode ? '#DC2626' : '';
+  btn.style.color = editMode ? '#DC2626' : '';
 }
 
 // ── Nav ───────────────────────────────────────────────────────────────────
 function setActiveNav(el) {
-  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
   el.classList.add('active');
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function makeStars(rating) {
-  if (rating === null || rating === undefined) return '<span class="text-gray-300">—</span>';
+  if (rating === null || rating === undefined) return '<span class="text-gray-200">—</span>';
   const full = Math.floor(rating), half = (rating - full) >= .5 ? 1 : 0, empty = 5 - full - half;
   return '<span class="star-full">' + '★'.repeat(full) + '</span>' +
-         (half ? '<span class="star-full opacity-50">★</span>' : '') +
+         (half ? '<span class="star-full" style="opacity:.4">★</span>' : '') +
          '<span class="star-empty">' + '☆'.repeat(empty) + '</span>';
-}
-
-function roleBadge(role) {
-  return { Flagship:'badge-red', Active:'badge-green', Newest:'badge-purple', 'Active-Growing':'badge-blue' }[role] || 'badge-gray';
 }
 
 function fmtDate(str) {
   if (!str) return '';
-  try { return new Date(str).toLocaleDateString('en-MY', { day:'numeric', month:'short', year:'numeric' }); }
+  try { return new Date(str).toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}); }
   catch { return str; }
 }
 
@@ -1210,7 +1203,7 @@ function updateTimestamp(iso) {
   try {
     const ageMs = Date.now() - new Date(iso).getTime();
     const h = Math.floor(ageMs / 3600000), m = Math.floor((ageMs % 3600000) / 60000);
-    document.getElementById('last-updated').textContent = `Updated ${h > 0 ? h+'h ' : ''}${m}m ago`;
+    document.getElementById('last-updated').textContent = `Updated ${h>0?h+'h ':''}${m}m ago`;
   } catch {}
 }
 
@@ -1237,6 +1230,5 @@ function sanitizeLink(url) {
   catch { return '#'; }
 }
 </script>
-
 </body>
 </html>
