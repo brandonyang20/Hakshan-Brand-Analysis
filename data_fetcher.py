@@ -10,19 +10,48 @@ import requests
 CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache", "data.json")
 CACHE_MAX_AGE_HOURS = 24
 
-# Categorised RSS feeds — category tag is attached to each fetched article
+# Categorised RSS feeds — category + optional competitor_id tag attached to each article
 RSS_FEEDS = [
     {
         "url": "https://news.google.com/rss/search?q=Hakshan+Malaysia+restaurant&hl=en-MY&gl=MY&ceid=MY:en",
         "category": "hakshan",
+        "competitor_id": "",
     },
     {
         "url": "https://news.google.com/rss/search?q=Hakka+restaurant+Malaysia+2026&hl=en-MY&gl=MY&ceid=MY:en",
         "category": "competitor",
+        "competitor_id": "",
     },
     {
         "url": "https://news.google.com/rss/search?q=Malaysia+Chinese+restaurant+food+industry&hl=en-MY&gl=MY&ceid=MY:en",
         "category": "industry",
+        "competitor_id": "",
+    },
+    # Competitor-specific feeds — news tracked per brand
+    {
+        "url": "https://news.google.com/rss/search?q=%22Hakka+Restaurant%22+%22Jalan+Raja+Chulan%22+Malaysia&hl=en-MY&gl=MY&ceid=MY:en",
+        "category": "competitor",
+        "competitor_id": "hakka_kl",
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=%22Hakka+Passion%22+Puchong+restaurant+Malaysia&hl=en-MY&gl=MY&ceid=MY:en",
+        "category": "competitor",
+        "competitor_id": "hakka_pass",
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=%22%E5%AE%A2%E4%BA%BA%E4%BE%86%22+OR+%22Ke+Ren+Lai%22+Malaysia+restaurant&hl=en-MY&gl=MY&ceid=MY:en",
+        "category": "competitor",
+        "competitor_id": "ke_ren_lai",
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=%22Hakka+Village%22+restaurant+Malaysia+Puchong&hl=en-MY&gl=MY&ceid=MY:en",
+        "category": "competitor",
+        "competitor_id": "hakka_village",
+    },
+    {
+        "url": "https://news.google.com/rss/search?q=%22Hakka+Niang%22+OR+%22%E5%AE%A2%E5%AE%B6%E5%A8%98%22+restaurant+Malaysia&hl=en-MY&gl=MY&ceid=MY:en",
+        "category": "competitor",
+        "competitor_id": "hakka_niang",
     },
 ]
 
@@ -207,6 +236,7 @@ STATIC_DATA = {
     ],
     "competitors": [
         {
+            "id": "hakka_kl",
             "name": "Hakka Restaurant KL",
             "name_zh": "客家饭店",
             "type": "direct",
@@ -228,6 +258,7 @@ STATIC_DATA = {
             "content_strategy_note": "Infrequent posting, no video content, no community engagement. Legacy brand coasting.",
         },
         {
+            "id": "hakka_pass",
             "name": "Hakka Passion",
             "type": "direct",
             "est": "N/A",
@@ -248,6 +279,7 @@ STATIC_DATA = {
             "content_strategy_note": "Almost no social presence. Relies entirely on existing community word-of-mouth.",
         },
         {
+            "id": "ke_ren_lai",
             "name": "客人來 Ke Ren Lai",
             "name_zh": "客人來",
             "type": "direct",
@@ -269,6 +301,7 @@ STATIC_DATA = {
             "content_strategy_note": "Primarily FB-driven. Occasional food photography posts, no video content or influencer partnerships.",
         },
         {
+            "id": "hakka_village",
             "name": "Hakka Village",
             "name_zh": "客家村",
             "type": "direct",
@@ -290,6 +323,7 @@ STATIC_DATA = {
             "content_strategy_note": "Sporadic food photo posts only. No brand narrative, no video content, no community engagement.",
         },
         {
+            "id": "hakka_niang",
             "name": "Hakka Niang",
             "name_zh": "客家娘",
             "type": "direct",
@@ -394,7 +428,7 @@ def _parse_rss_date(pub_date_str: str) -> datetime:
         return datetime.min.replace(tzinfo=timezone.utc)
 
 
-def fetch_rss_feed(url: str, category: str) -> list:
+def fetch_rss_feed(url: str, category: str, competitor_id: str = "") -> list:
     headers = {
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
                       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -428,10 +462,11 @@ def fetch_rss_feed(url: str, category: str) -> list:
                 "source": source,
                 "description": description,
                 "category": category,
+                "competitor_id": competitor_id,
             })
         return items[:20]
     except Exception as exc:
-        print(f"[data_fetcher] RSS fetch failed ({category}): {exc}")
+        print(f"[data_fetcher] RSS fetch failed ({category}/{competitor_id or 'general'}): {exc}")
         return []
 
 
@@ -439,13 +474,17 @@ def fetch_all_news() -> list:
     all_articles = []
     seen_links: set = set()
     for feed in RSS_FEEDS:
-        for article in fetch_rss_feed(feed["url"], feed["category"]):
+        for article in fetch_rss_feed(
+            feed["url"],
+            feed["category"],
+            feed.get("competitor_id", ""),
+        ):
             norm_link = article["link"].split("?")[0]
             if norm_link not in seen_links:
                 seen_links.add(norm_link)
                 all_articles.append(article)
     all_articles.sort(key=lambda a: _parse_rss_date(a["pub_date"]), reverse=True)
-    return all_articles[:30]
+    return all_articles[:50]
 
 
 def read_analysis_section(section: str) -> str:

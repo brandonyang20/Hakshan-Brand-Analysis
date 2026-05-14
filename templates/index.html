@@ -983,7 +983,31 @@ function renderCompetitorChart(cc) {
 
 // ── Competitor strategy ───────────────────────────────────────────────────
 function renderCompetitorStrategy(competitors) {
-  document.getElementById('competitor-strategy').innerHTML = competitors.map(c => `
+  document.getElementById('competitor-strategy').innerHTML = competitors.map(c => {
+    const cNews = (allNews || [])
+      .filter(a => a.competitor_id && a.competitor_id === c.id)
+      .slice(0, 3);
+    const newsHtml = cNews.length
+      ? `<div class="mt-4 pt-3 border-t border-gray-100">
+          <p class="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] inline-block"></span>
+            Recent mentions
+          </p>
+          <div class="space-y-2">
+            ${cNews.map(a => `
+              <a href="${sanitizeLink(a.link)}" target="_blank" rel="noopener noreferrer"
+                class="block text-xs text-gray-600 hover:text-[#DC2626] leading-snug transition-colors duration-150 cursor-pointer line-clamp-2">
+                ${esc(a.title)}
+              </a>`).join('')}
+          </div>
+        </div>`
+      : `<div class="mt-4 pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-300 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-200 inline-block"></span>
+            No recent mentions found
+          </p>
+        </div>`;
+    return `
     <div class="card">
       <div class="flex items-start justify-between mb-2">
         <p class="font-semibold text-gray-900 text-sm">${esc(c.name)} ${c.name_zh ? `<span class="text-gray-400 font-normal text-xs ml-1">${esc(c.name_zh)}</span>` : ''}</p>
@@ -1005,8 +1029,9 @@ function renderCompetitorStrategy(competitors) {
           ${c.weaknesses.map(w => `<p class="text-gray-400 flex items-start gap-1 mb-1"><span class="flex-shrink-0">−</span>${esc(w)}</p>`).join('')}
         </div>
       </div>
-    </div>
-  `).join('');
+      ${newsHtml}
+    </div>`;
+  }).join('');
 }
 
 // ── KPI Progress ──────────────────────────────────────────────────────────
