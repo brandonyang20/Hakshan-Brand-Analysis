@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>客善 Hakshan — Brand Analysis Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            hakred:  { DEFAULT: '#B91C1C', light: '#FEE2E2', dark: '#7F1D1D' },
+            hakgold: { DEFAULT: '#B45309', light: '#FEF3C7', dark: '#78350F' },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+
+    .card { @apply bg-white rounded-2xl shadow-sm border border-gray-100 p-5; }
+    .section-title { @apply text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2; }
+
+    .spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+    .badge-warn  { @apply bg-amber-100 text-amber-800; }
+    .badge-ok    { @apply bg-green-100 text-green-800; }
+    .badge-danger{ @apply bg-red-100 text-red-800; }
+    .badge-info  { @apply bg-blue-100 text-blue-800; }
+    .badge-gray  { @apply bg-gray-100 text-gray-700; }
+    .badge-new   { @apply bg-purple-100 text-purple-800; }
+
+    .hover-lift { transition: transform .15s, box-shadow .15s; }
+    .hover-lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,.10); }
+
+    .tab-btn { @apply px-3 py-1.5 text-sm font-medium rounded-lg transition-colors cursor-pointer; }
+    .tab-btn.active { @apply bg-hakred text-white; }
+    .tab-btn:not(.active) { @apply text-gray-600 hover:bg-gray-100; }
+
+    .progress-bar-bg { @apply w-full bg-gray-100 rounded-full h-2; }
+    .progress-bar    { @apply h-2 rounded-full transition-all duration-700; }
+
+    .news-card { @apply block bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover-lift flex flex-col gap-2; }
+
+    .star { color: #F59E0B; }
+    .star-empty { color: #D1D5DB; }
+
+    details > summary { cursor: pointer; list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] .chevron { transform: rotate(180deg); }
+    .chevron { transition: transform .2s; }
+
+    /* Skeleton loader */
+    .skeleton { @apply bg-gray-100 rounded animate-pulse; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-900">
+
+  <!-- ─── HEADER ─────────────────────────────────────────────────────── -->
+  <header class="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-xl bg-hakred flex items-center justify-center flex-shrink-0">
+          <span class="text-white font-bold text-sm">客</span>
+        </div>
+        <div class="min-w-0">
+          <h1 class="font-bold text-gray-900 text-base leading-tight truncate">客善 Hakshan</h1>
+          <p class="text-xs text-gray-500 hidden sm:block truncate">Brand Analysis Dashboard</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <!-- Last updated -->
+        <span id="last-updated" class="text-xs text-gray-400 hidden sm:block">Loading…</span>
+
+        <!-- Spinner -->
+        <svg id="spinner" class="spin w-4 h-4 text-hakred hidden" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+        </svg>
+
+        <!-- Refresh button -->
+        <button id="btn-refresh"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-hakred text-white text-sm font-medium rounded-lg hover:bg-hakred-dark transition-colors">
+          <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+          </svg>
+          <span id="btn-refresh-text">Refresh</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── ERROR BANNER ────────────────────────────────────────────────── -->
+  <div id="error-banner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 mt-4">
+    <div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3 flex items-center justify-between">
+      <span id="error-message">An error occurred.</span>
+      <button onclick="document.getElementById('error-banner').classList.add('hidden')" class="ml-4 text-red-500 hover:text-red-700">✕</button>
+    </div>
+  </div>
+
+  <!-- ─── MAIN ─────────────────────────────────────────────────────────── -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- Brand tagline strip -->
+    <div class="bg-gradient-to-r from-hakred to-red-700 rounded-2xl px-5 py-4 text-white">
+      <p class="text-sm font-medium opacity-80">客善 Hakshan · Brand Motto</p>
+      <p id="tagline-zh" class="text-lg font-semibold mt-0.5">让平凡的一餐，有着非凡的意义</p>
+      <p id="tagline-en" class="text-sm opacity-75 mt-0.5">Making an ordinary meal, extraordinarily meaningful</p>
+    </div>
+
+    <!-- ─── KPI CARDS ────────────────────────────────────────────────── -->
+    <section>
+      <div id="kpi-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Populated by JS -->
+        <div class="skeleton h-28 rounded-2xl"></div>
+        <div class="skeleton h-28 rounded-2xl"></div>
+        <div class="skeleton h-28 rounded-2xl"></div>
+        <div class="skeleton h-28 rounded-2xl"></div>
+      </div>
+    </section>
+
+    <!-- ─── NEWS ─────────────────────────────────────────────────────── -->
+    <section>
+      <h2 class="section-title">
+        <span class="text-xl">📰</span> Latest News
+        <span id="news-count" class="badge badge-gray ml-1"></span>
+      </h2>
+      <div id="news-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Skeleton placeholders -->
+        <div class="skeleton h-36 rounded-xl"></div>
+        <div class="skeleton h-36 rounded-xl"></div>
+        <div class="skeleton h-36 rounded-xl"></div>
+      </div>
+    </section>
+
+    <!-- ─── SOCIAL + REVIEWS (2-col) ────────────────────────────────── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Social Media -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="text-xl">📱</span> Social Media Performance
+        </h2>
+        <div id="social-table">
+          <div class="skeleton h-40 rounded-xl"></div>
+        </div>
+        <div class="mt-4">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-medium text-gray-600">Social Health Score</span>
+            <span id="health-score-label" class="text-xs font-bold text-hakred"></span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="health-score-bar" class="progress-bar bg-hakred" style="width:0%"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Branch Reviews -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="text-xl">⭐</span> Branch Reviews &amp; Sentiment
+        </h2>
+        <div id="reviews-table">
+          <div class="skeleton h-40 rounded-xl"></div>
+        </div>
+        <p id="review-insight" class="text-xs text-gray-500 mt-3 italic leading-relaxed"></p>
+      </section>
+
+    </div>
+
+    <!-- ─── COMPETITORS + RECOMMENDATIONS (2-col) ───────────────────── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Competitors -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="text-xl">🏆</span> Competitor Landscape
+        </h2>
+        <div id="competitor-table">
+          <div class="skeleton h-40 rounded-xl"></div>
+        </div>
+        <div class="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-3 text-xs text-amber-800">
+          <strong>Positioning opportunity:</strong> Hakshan is the <strong>digital leader</strong> in the Hakka category — but the bar is low. First mover on TikTok wins the entire category.
+        </div>
+      </section>
+
+      <!-- Recommendations -->
+      <section class="card">
+        <h2 class="section-title">
+          <span class="text-xl">🎯</span> Recommendations
+        </h2>
+
+        <!-- Horizon tabs -->
+        <div class="flex gap-1 mb-4 bg-gray-50 p-1 rounded-lg w-fit">
+          <button class="tab-btn active" onclick="switchTab('h1', this)">H1 · Now</button>
+          <button class="tab-btn" onclick="switchTab('h2', this)">H2 · Soon</button>
+          <button class="tab-btn" onclick="switchTab('h3', this)">H3 · Plan</button>
+        </div>
+
+        <div id="recs-h1" class="tab-content space-y-2"></div>
+        <div id="recs-h2" class="tab-content space-y-2 hidden"></div>
+        <div id="recs-h3" class="tab-content space-y-2 hidden"></div>
+
+        <!-- KPI mini-table -->
+        <div class="mt-5">
+          <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">KPI Targets</p>
+          <div id="kpi-targets-table" class="overflow-x-auto">
+            <div class="skeleton h-24 rounded-xl"></div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ─── BRANCH CARDS ──────────────────────────────────────────────── -->
+    <section>
+      <h2 class="section-title">
+        <span class="text-xl">📍</span> 5 Branch Locations
+      </h2>
+      <div id="branch-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div class="skeleton h-48 rounded-2xl"></div>
+        <div class="skeleton h-48 rounded-2xl"></div>
+        <div class="skeleton h-48 rounded-2xl"></div>
+        <div class="skeleton h-48 rounded-2xl"></div>
+        <div class="skeleton h-48 rounded-2xl"></div>
+      </div>
+    </section>
+
+    <!-- ─── SIGNATURE DISHES ─────────────────────────────────────────── -->
+    <section class="card">
+      <h2 class="section-title">
+        <span class="text-xl">🍽️</span> Signature Dishes
+      </h2>
+      <div id="dishes-grid" class="flex flex-wrap gap-2"></div>
+    </section>
+
+  </main>
+
+  <!-- ─── FOOTER ──────────────────────────────────────────────────────── -->
+  <footer class="mt-12 border-t border-gray-200 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
+      <span>客善 Hakshan Brand Analysis Dashboard · Data: publicly available information · May 2026</span>
+      <span>News via Google News RSS · Auto-refreshes every 24 hours</span>
+    </div>
+  </footer>
+
+  <!-- ─── JAVASCRIPT ───────────────────────────────────────────────────── -->
+  <script>
+    // ── State ────────────────────────────────────────────────────────────
+    let dashboardData = null;
+    let activeTab = 'h1';
+
+    // ── Boot ─────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData(false);
+      document.getElementById('btn-refresh').addEventListener('click', handleManualRefresh);
+    });
+
+    // ── Data loading ─────────────────────────────────────────────────────
+    async function loadData(force) {
+      setLoading(true);
+      try {
+        const url    = force ? '/api/refresh' : '/api/data';
+        const method = force ? 'POST' : 'GET';
+        const resp   = await fetch(url, { method });
+        if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+        dashboardData = await resp.json();
+        if (dashboardData.error) throw new Error(dashboardData.error);
+        renderDashboard(dashboardData);
+        updateTimestamp(dashboardData.fetched_at);
+        hideError();
+      } catch (err) {
+        showError('Could not load dashboard data: ' + err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function handleManualRefresh() {
+      const btn = document.getElementById('btn-refresh');
+      btn.disabled = true;
+      await loadData(true);
+      btn.disabled = false;
+    }
+
+    // ── Render orchestrator ───────────────────────────────────────────────
+    function renderDashboard(d) {
+      renderKPIs(d);
+      renderNews(d.news, d.news_fetch_status);
+      renderSocialMedia(d.social_media);
+      renderBranchReviews(d.branches, d.reviews);
+      renderCompetitors(d.competitors);
+      renderRecommendations(d.recommendations, d.kpi_targets);
+      renderBranches(d.branches);
+      renderDishes(d.signature_dishes);
+    }
+
+    // ── KPI Cards ─────────────────────────────────────────────────────────
+    function renderKPIs(d) {
+      const sm = d.social_media;
+      const rv = d.reviews;
+      const cards = [
+        {
+          icon: '📸',
+          label: 'Instagram',
+          value: sm.instagram.followers.toLocaleString(),
+          sub: `${sm.instagram.posts} posts`,
+          badge: 'Under-grown',
+          badgeClass: 'badge-warn',
+          note: 'Target: 8K–15K for 5-branch chain',
+          color: 'from-pink-50 to-white',
+        },
+        {
+          icon: '👥',
+          label: 'Facebook',
+          value: sm.facebook.likes.toLocaleString(),
+          sub: 'Page likes',
+          badge: 'Moderate',
+          badgeClass: 'badge-warn',
+          note: 'Stronger than Instagram; older demographic',
+          color: 'from-blue-50 to-white',
+        },
+        {
+          icon: '⭐',
+          label: 'Google Reviews',
+          value: rv.total_google_reviews,
+          sub: `Rating: ${rv.overall_rating_range} / 5`,
+          badge: 'Strong',
+          badgeClass: 'badge-ok',
+          note: `~${rv.recommendation_rate} recommendation rate`,
+          color: 'from-yellow-50 to-white',
+        },
+        {
+          icon: '📊',
+          label: 'Social Health',
+          value: `${sm.social_health_score}/10`,
+          sub: 'Overall score',
+          badge: 'Needs work',
+          badgeClass: 'badge-danger',
+          note: 'TikTok & XHS absent — fix first',
+          color: 'from-red-50 to-white',
+        },
+      ];
+      document.getElementById('kpi-grid').innerHTML = cards.map(c => `
+        <div class="bg-gradient-to-br ${c.color} rounded-2xl border border-gray-100 shadow-sm p-4">
+          <div class="flex items-start justify-between mb-2">
+            <span class="text-2xl">${c.icon}</span>
+            <span class="badge ${c.badgeClass}">${c.badge}</span>
+          </div>
+          <p class="text-2xl font-bold text-gray-900">${c.value}</p>
+          <p class="text-xs text-gray-500 mt-0.5">${c.label} · ${c.sub}</p>
+          <p class="text-xs text-gray-400 mt-2 leading-relaxed">${c.note}</p>
+        </div>
+      `).join('');
+    }
+
+    // ── News ──────────────────────────────────────────────────────────────
+    function renderNews(articles, status) {
+      const container = document.getElementById('news-grid');
+      const countEl = document.getElementById('news-count');
+
+      if (!articles || articles.length === 0) {
+        countEl.textContent = '0';
+        container.innerHTML = `
+          <div class="col-span-full bg-white rounded-xl border border-gray-100 p-8 text-center text-gray-400">
+            <p class="text-3xl mb-2">📭</p>
+            <p class="font-medium text-gray-600">${status === 'unavailable' ? 'News temporarily unavailable' : 'No articles found'}</p>
+            <p class="text-sm mt-1">Click <strong>Refresh</strong> to try fetching the latest news.</p>
+          </div>`;
+        return;
+      }
+
+      countEl.textContent = articles.length;
+      container.innerHTML = articles.map(a => `
+        <a href="${sanitizeLink(a.link)}"
+           target="_blank" rel="noopener noreferrer"
+           class="news-card">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="font-semibold text-gray-900 text-sm leading-snug line-clamp-3 flex-1">
+              ${escHtml(a.title)}
+            </h3>
+            <span class="text-gray-300 flex-shrink-0 mt-0.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/>
+              </svg>
+            </span>
+          </div>
+          ${a.description ? `<p class="text-xs text-gray-500 line-clamp-2 flex-1">${escHtml(a.description)}</p>` : ''}
+          <div class="flex items-center gap-2 pt-2 border-t border-gray-50 mt-auto">
+            ${a.source ? `<span class="text-xs font-medium text-hakred truncate max-w-[120px]">${escHtml(a.source)}</span>` : ''}
+            <span class="text-xs text-gray-400 ml-auto flex-shrink-0">${fmtDate(a.pub_date)}</span>
+          </div>
+        </a>
+      `).join('');
+    }
+
+    // ── Social Media Table ────────────────────────────────────────────────
+    function renderSocialMedia(sm) {
+      const platforms = [
+        { name: 'Instagram', handle: sm.instagram.handle, value: sm.instagram.followers.toLocaleString() + ' followers', status: sm.instagram.status, label: sm.instagram.label, note: sm.instagram.note, icon: '📸' },
+        { name: 'Facebook',  handle: sm.facebook.page,    value: sm.facebook.likes.toLocaleString() + ' likes',     status: sm.facebook.status,  label: sm.facebook.label,  note: sm.facebook.note,  icon: '👥' },
+        { name: 'TikTok',    handle: '—',                  value: '0 followers',                                     status: sm.tiktok.status,    label: sm.tiktok.label,    note: sm.tiktok.note,    icon: '🎵' },
+        { name: 'Xiaohongshu', handle: '小红书',           value: '0 followers',                                     status: sm.xiaohongshu.status, label: sm.xiaohongshu.label, note: sm.xiaohongshu.note, icon: '📕' },
+      ];
+      const badgeFor = s => s === 'absent' ? 'badge-danger' : s === 'moderate' ? 'badge-warn' : 'badge-warn';
+      document.getElementById('social-table').innerHTML = `
+        <div class="space-y-2">
+          ${platforms.map(p => `
+            <div class="flex items-start gap-3 p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
+              <span class="text-lg flex-shrink-0 mt-0.5">${p.icon}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium text-sm text-gray-800">${p.name}</span>
+                  <span class="badge ${badgeFor(p.status)}">${p.label}</span>
+                </div>
+                <p class="text-sm text-gray-700 font-semibold mt-0.5">${p.value}</p>
+                <p class="text-xs text-gray-400 mt-0.5 leading-snug">${escHtml(p.note)}</p>
+              </div>
+            </div>
+          `).join('')}
+        </div>`;
+      const score = sm.social_health_score;
+      const pct   = (score / sm.social_health_max) * 100;
+      document.getElementById('health-score-label').textContent = `${score} / ${sm.social_health_max}`;
+      setTimeout(() => {
+        document.getElementById('health-score-bar').style.width = pct + '%';
+      }, 100);
+    }
+
+    // ── Branch Reviews ────────────────────────────────────────────────────
+    function renderBranchReviews(branches, reviews) {
+      document.getElementById('reviews-table').innerHTML = `
+        <div class="space-y-1.5">
+          ${branches.map(b => `
+            <details class="rounded-xl overflow-hidden">
+              <summary class="flex items-center gap-3 p-3 bg-gray-50 hover:bg-gray-100 transition-colors">
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-medium text-sm text-gray-800 truncate">${escHtml(b.name)}</span>
+                    <span class="badge ${roleBadge(b.role)}">${b.role}</span>
+                  </div>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span class="text-sm">${makeStars(b.rating)}</span>
+                    ${b.rating ? `<span class="text-xs text-gray-500">${b.rating}</span>` : ''}
+                  </div>
+                </div>
+                <svg class="chevron w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                </svg>
+              </summary>
+              <div class="px-3 pb-3 pt-2 bg-white border-t border-gray-100">
+                ${b.highlights.map(h => `<p class="text-xs text-green-700 flex items-start gap-1.5 mt-1"><span class="flex-shrink-0 mt-0.5">✓</span>${escHtml(h)}</p>`).join('')}
+                ${b.watch_areas && b.watch_areas.length ? b.watch_areas.map(w => `<p class="text-xs text-amber-700 flex items-start gap-1.5 mt-1"><span class="flex-shrink-0 mt-0.5">⚠</span>${escHtml(w)}</p>`).join('') : ''}
+                <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name + ' Malaysia')}"
+                   target="_blank" rel="noopener noreferrer"
+                   class="inline-flex items-center gap-1 mt-2 text-xs text-hakred hover:underline">
+                  View on Google Maps
+                  <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+                </a>
+              </div>
+            </details>
+          `).join('')}
+        </div>`;
+      document.getElementById('review-insight').textContent = reviews.key_insight || '';
+    }
+
+    // ── Competitors ────────────────────────────────────────────────────────
+    function renderCompetitors(competitors) {
+      const hakshan = {
+        name: '客善 Hakshan', est: '~2022', location: 'Klang Valley (5 branches)',
+        instagram_followers: 2771, facebook_likes: 6257, tiktok: false,
+        threat_label: '—', threat_level: 'self',
+        strengths: ['Best digital in category', 'Charity USP', '5-branch scale'],
+        weaknesses: ['Social media under-developed', 'No TikTok yet'],
+      };
+      const all = [hakshan, ...competitors];
+
+      document.getElementById('competitor-table').innerHTML = `
+        <div class="overflow-x-auto -mx-1">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="text-gray-400 uppercase tracking-wide">
+                <th class="text-left pb-2 pr-3 font-medium">Brand</th>
+                <th class="text-right pb-2 px-2 font-medium">IG</th>
+                <th class="text-right pb-2 px-2 font-medium">FB</th>
+                <th class="text-center pb-2 px-2 font-medium">TikTok</th>
+                <th class="text-center pb-2 pl-2 font-medium">Threat</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              ${all.map((c, i) => `
+                <tr class="${i === 0 ? 'bg-red-50' : 'hover:bg-gray-50'} transition-colors">
+                  <td class="py-2 pr-3">
+                    <div class="font-semibold ${i === 0 ? 'text-hakred' : 'text-gray-800'}">${escHtml(c.name)}</div>
+                    <div class="text-gray-400 text-xs">${escHtml(c.location || '')}</div>
+                  </td>
+                  <td class="py-2 px-2 text-right font-medium">${c.instagram_followers ? c.instagram_followers.toLocaleString() : '—'}</td>
+                  <td class="py-2 px-2 text-right font-medium">${c.facebook_likes ? c.facebook_likes.toLocaleString() : '—'}</td>
+                  <td class="py-2 px-2 text-center">${c.tiktok ? '✓' : '<span class="text-gray-300">✗</span>'}</td>
+                  <td class="py-2 pl-2 text-center">
+                    ${i === 0
+                      ? '<span class="badge badge-info">Self</span>'
+                      : `<span class="badge ${c.threat_level === 'high_puchong' ? 'badge-danger' : 'badge-warn'}">${escHtml(c.threat_label)}</span>`
+                    }
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── Recommendations ───────────────────────────────────────────────────
+    function renderRecommendations(recs, kpis) {
+      const horizons = [
+        { id: 'h1', items: recs.h1_quick_wins,    badge: 'badge-danger', label: 'H1 · 0–30 days' },
+        { id: 'h2', items: recs.h2_growth,         badge: 'badge-warn',  label: 'H2 · 1–3 months' },
+        { id: 'h3', items: recs.h3_brand_building, badge: 'badge-ok',    label: 'H3 · 3–12 months' },
+      ];
+      horizons.forEach(h => {
+        document.getElementById('recs-' + h.id).innerHTML = h.items.map((item, i) => `
+          <div class="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+            <span class="flex-shrink-0 w-5 h-5 rounded-full bg-gray-100 text-gray-600 text-xs flex items-center justify-center font-bold">${i+1}</span>
+            <p class="text-sm text-gray-700 leading-snug">${escHtml(item)}</p>
+          </div>
+        `).join('');
+      });
+
+      // KPI targets mini-table
+      const kpiRows = [
+        { metric: 'Instagram Followers', current: kpis.instagram_followers.current.toLocaleString(), t3m: kpis.instagram_followers.target_3m.toLocaleString(), t12m: kpis.instagram_followers.target_12m.toLocaleString() },
+        { metric: 'Facebook Likes',      current: kpis.facebook_likes.current.toLocaleString(),      t3m: kpis.facebook_likes.target_3m.toLocaleString(),      t12m: kpis.facebook_likes.target_12m.toLocaleString() },
+        { metric: 'TikTok Followers',    current: kpis.tiktok_followers.current.toLocaleString(),    t3m: kpis.tiktok_followers.target_3m.toLocaleString(),    t12m: kpis.tiktok_followers.target_12m.toLocaleString() },
+        { metric: 'XHS Followers',       current: kpis.xhs_followers.current.toLocaleString(),       t3m: kpis.xhs_followers.target_3m.toLocaleString(),       t12m: kpis.xhs_followers.target_12m.toLocaleString() },
+        { metric: 'Google Review Response', current: kpis.google_response_rate.current_pct + '%', t3m: '60%', t12m: kpis.google_response_rate.target_pct + '%' },
+      ];
+      document.getElementById('kpi-targets-table').innerHTML = `
+        <table class="w-full text-xs">
+          <thead>
+            <tr class="text-gray-400 uppercase tracking-wide">
+              <th class="text-left pb-1 pr-2 font-medium">Metric</th>
+              <th class="text-right pb-1 px-2 font-medium">Now</th>
+              <th class="text-right pb-1 px-2 font-medium">3M</th>
+              <th class="text-right pb-1 font-medium">12M</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            ${kpiRows.map(r => `
+              <tr class="hover:bg-gray-50">
+                <td class="py-1.5 pr-2 font-medium text-gray-700">${r.metric}</td>
+                <td class="py-1.5 px-2 text-right text-gray-500">${r.current}</td>
+                <td class="py-1.5 px-2 text-right text-amber-600 font-medium">${r.t3m}</td>
+                <td class="py-1.5 text-right text-green-600 font-bold">${r.t12m}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    // ── Branch Cards ──────────────────────────────────────────────────────
+    function renderBranches(branches) {
+      document.getElementById('branch-cards').innerHTML = branches.map(b => `
+        <div class="card hover-lift flex flex-col gap-3">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="font-semibold text-sm text-gray-900 leading-snug">${escHtml(b.name)}</h3>
+            <span class="badge ${roleBadge(b.role)} flex-shrink-0">${b.role}</span>
+          </div>
+          <p class="text-xs text-gray-500 leading-relaxed">${escHtml(b.address)}</p>
+          <div class="flex items-center gap-1.5">
+            <span class="text-sm">${makeStars(b.rating)}</span>
+            ${b.rating ? `<span class="text-xs font-semibold text-gray-700">${b.rating}</span>` : '<span class="text-xs text-gray-400">Not yet rated</span>'}
+          </div>
+          <ul class="space-y-1 flex-1">
+            ${b.highlights.slice(0,2).map(h => `
+              <li class="text-xs text-gray-600 flex items-start gap-1.5">
+                <span class="text-green-500 flex-shrink-0 mt-0.5">✓</span>${escHtml(h)}
+              </li>`).join('')}
+          </ul>
+          <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name + ' Malaysia')}"
+             target="_blank" rel="noopener noreferrer"
+             class="inline-flex items-center gap-1 text-xs text-hakred hover:underline mt-auto">
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            Google Maps
+          </a>
+        </div>
+      `).join('');
+    }
+
+    // ── Signature Dishes ──────────────────────────────────────────────────
+    function renderDishes(dishes) {
+      document.getElementById('dishes-grid').innerHTML = dishes.map(d => `
+        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-hakred text-sm font-medium rounded-full border border-red-100">
+          🍜 ${escHtml(d)}
+        </span>
+      `).join('');
+    }
+
+    // ── Tab switching ─────────────────────────────────────────────────────
+    function switchTab(id, btn) {
+      activeTab = id;
+      ['h1','h2','h3'].forEach(h => {
+        const el = document.getElementById('recs-' + h);
+        el.classList.toggle('hidden', h !== id);
+      });
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function makeStars(rating) {
+      if (rating === null || rating === undefined) return '<span class="text-gray-300 text-sm">—</span>';
+      const full  = Math.floor(rating);
+      const half  = (rating - full) >= 0.5 ? 1 : 0;
+      const empty = 5 - full - half;
+      return '<span class="star text-sm">' + '★'.repeat(full) + '</span>' +
+             (half ? '<span class="star text-sm" style="opacity:.5">★</span>' : '') +
+             '<span class="star-empty text-sm">' + '☆'.repeat(empty) + '</span>';
+    }
+
+    function roleBadge(role) {
+      const map = { Flagship: 'badge-danger', Active: 'badge-ok', Newest: 'badge-new', 'Active-Growing': 'badge-info' };
+      return map[role] || 'badge-gray';
+    }
+
+    function fmtDate(str) {
+      if (!str) return '';
+      try {
+        return new Date(str).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch { return str; }
+    }
+
+    function updateTimestamp(isoStr) {
+      if (!isoStr) return;
+      try {
+        const d = new Date(isoStr);
+        const ageMs = Date.now() - d.getTime();
+        const ageH  = Math.floor(ageMs / 3600000);
+        const ageM  = Math.floor((ageMs % 3600000) / 60000);
+        const label = ageH > 0 ? `${ageH}h ${ageM}m ago` : `${ageM}m ago`;
+        document.getElementById('last-updated').textContent = `Updated ${label}`;
+      } catch {}
+    }
+
+    function setLoading(on) {
+      document.getElementById('spinner').classList.toggle('hidden', !on);
+      const txtEl = document.getElementById('btn-refresh-text');
+      txtEl.textContent = on ? 'Refreshing…' : 'Refresh';
+    }
+
+    function showError(msg) {
+      document.getElementById('error-message').textContent = msg;
+      document.getElementById('error-banner').classList.remove('hidden');
+    }
+    function hideError() {
+      document.getElementById('error-banner').classList.add('hidden');
+    }
+
+    function escHtml(str) {
+      const d = document.createElement('div');
+      d.appendChild(document.createTextNode(str || ''));
+      return d.innerHTML;
+    }
+
+    function sanitizeLink(url) {
+      if (!url) return '#';
+      try {
+        const u = new URL(url);
+        return (u.protocol === 'http:' || u.protocol === 'https:') ? url : '#';
+      } catch { return '#'; }
+    }
+  </script>
+
+</body>
+</html>
