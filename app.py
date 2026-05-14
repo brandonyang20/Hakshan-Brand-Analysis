@@ -2,7 +2,7 @@ import os
 
 from flask import Flask, jsonify, render_template
 
-from data_fetcher import get_data
+from data_fetcher import get_data, read_analysis_section
 
 
 def create_app() -> Flask:
@@ -28,6 +28,13 @@ def create_app() -> Flask:
             return jsonify(data)
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
+
+    @app.route("/api/analysis/<section>")
+    def api_analysis(section):
+        content = read_analysis_section(section)
+        if not content:
+            return jsonify({"error": "Section not found"}), 404
+        return jsonify({"section": section, "content": content})
 
     return app
 
