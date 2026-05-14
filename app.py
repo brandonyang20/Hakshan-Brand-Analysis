@@ -1,8 +1,17 @@
 import os
+from datetime import datetime, timezone
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 
-from data_fetcher import get_data, read_analysis_section
+from data_fetcher import (
+    get_data,
+    get_live_social_data,
+    load_competitor_social,
+    read_analysis_section,
+    save_competitor_social,
+)
+
+ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 
 
 def create_app() -> Flask:
@@ -40,6 +49,52 @@ def create_app() -> Flask:
             return jsonify({"error": "Section not found"}), 404
         return jsonify({"section": section, "content": content})
 
+    @app.route("/api/social/live")
+    def api_social_live():
+        try:
+            data = get_live_social_data(force=False)
+            if not data:
+                return jsonify({"error": "Social API not configured — set INSTAGRAM_ACCESS_TOKEN"}), 503
+            return jsonify(data)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
+    @app.route("/api/social/refresh", methods=["POST"])
+    def api_social_refresh():
+        try:
+            data = get_live_social_data(force=True)
+            if not data:
+                return jsonify({"error": "Social API not configured — set INSTAGRAM_ACCESS_TOKEN"}), 503
+            return jsonify(data)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
+    @app.route("/api/competitors/social", methods=["POST"])
+    def api_competitors_social():
+        auth = request.headers.get("Authorization", "")
+        if not ADMIN_TOKEN or auth != f"Bearer {ADMIN_TOKEN}":
+            return jsonify({"error": "Unauthorized"}), 401
+        try:
+            updates = request.get_json(force=True)
+            if not isinstance(updates, dict):
+                return jsonify({"error": "Invalid JSON body"}), 400
+            today = datetime.now(timezone.utc).date().isoformat()
+            current = load_competitor_social()
+            for cid, vals in updates.items():
+                if not isinstance(vals, dict):
+                    continue
+                if cid not in current:
+                    current[cid] = {}
+                if "ig" in vals:
+                    current[cid]["ig"] = int(vals["ig"])
+                if "fb" in vals:
+                    current[cid]["fb"] = int(vals["fb"])
+                current[cid]["updated_at"] = today
+            save_competitor_social(current)
+            return jsonify({"ok": True, "updated": current})
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
     return app
 
 
@@ -58,9 +113,18 @@ def setup_scheduler(flask_app: Flask):
                 get_data(force=True)
                 print("[scheduler] Daily refresh complete.")
 
+        def social_refresh():
+            print("[scheduler] Running social media refresh...")
+            get_live_social_data(force=True)
+            print("[scheduler] Social refresh complete.")
+
         scheduler.add_job(daily_refresh, trigger="cron", hour=3, minute=0)
+        scheduler.add_job(social_refresh, trigger="cron", hour=3, minute=30)
+        scheduler.add_job(social_refresh, trigger="cron", hour=9, minute=0)
+        scheduler.add_job(social_refresh, trigger="cron", hour=15, minute=0)
+        scheduler.add_job(social_refresh, trigger="cron", hour=21, minute=0)
         scheduler.start()
-        print("[scheduler] Daily refresh scheduled at 03:00.")
+        print("[scheduler] Daily refresh at 03:00, social refresh every 6h.")
         return scheduler
     except ImportError:
         print("[scheduler] APScheduler not installed — scheduled refresh disabled.")

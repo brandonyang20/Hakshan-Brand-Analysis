@@ -8,7 +8,14 @@ from email.utils import parsedate_to_datetime
 import requests
 
 CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache", "data.json")
+SOCIAL_LIVE_CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache", "social_live.json")
+COMPETITOR_SOCIAL_FILE = os.path.join(os.path.dirname(__file__), "cache", "competitor_social.json")
 CACHE_MAX_AGE_HOURS = 24
+SOCIAL_LIVE_CACHE_MAX_AGE_HOURS = 6
+
+INSTAGRAM_TOKEN = os.getenv("INSTAGRAM_ACCESS_TOKEN", "")
+FACEBOOK_PAGE_TOKEN = os.getenv("FACEBOOK_PAGE_ACCESS_TOKEN", "")
+FACEBOOK_PAGE_ID = os.getenv("FACEBOOK_PAGE_ID", "")
 
 # Categorised RSS feeds — category + optional competitor_id tag attached to each article
 RSS_FEEDS = [
@@ -533,10 +540,177 @@ def save_cache(data: dict) -> None:
         print(f"[data_fetcher] Cache save failed: {exc}")
 
 
+def fetch_instagram_data(token: str) -> "dict | None":
+    base = "https://graph.instagram.com/v19.0"
+    try:
+        profile_resp = requests.get(
+            f"{base}/me",
+            params={"fields": "followers_count,media_count,username", "access_token": token},
+            timeout=10,
+        )
+        profile = profile_resp.json()
+        if "error" in profile:
+            print(f"[data_fetcher] Instagram API error: {profile['error'].get('message')}")
+            return None
+
+        media_resp = requests.get(
+            f"{base}/me/media",
+            params={
+                "fields": "id,caption,media_type,media_url,thumbnail_url,timestamp,permalink",
+                "limit": 5,
+                "access_token": token,
+            },
+            timeout=10,
+        ).json()
+
+        recent_posts = []
+        for post in media_resp.get("data", []):
+            media_url = post.get("media_url") or post.get("thumbnail_url") or ""
+            recent_posts.append({
+                "id": post.get("id", ""),
+                "caption": (post.get("caption") or "")[:150],
+                "media_url": media_url,
+                "timestamp": post.get("timestamp", ""),
+                "permalink": post.get("permalink", ""),
+            })
+
+        return {
+            "followers": profile.get("followers_count", 0),
+            "posts": profile.get("media_count", 0),
+            "username": profile.get("username", ""),
+            "recent_posts": recent_posts,
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "source": "instagram_api",
+        }
+    except Exception as exc:
+        print(f"[data_fetcher] Instagram fetch failed: {exc}")
+        return None
+
+
+def fetch_facebook_data(token: str, page_id: str) -> "dict | None":
+    base = "https://graph.facebook.com/v19.0"
+    try:
+        resp = requests.get(
+            f"{base}/{page_id}",
+            params={"fields": "fan_count,name", "access_token": token},
+            timeout=10,
+        ).json()
+        if "error" in resp:
+            print(f"[data_fetcher] Facebook API error: {resp['error'].get('message')}")
+            return None
+        return {
+            "likes": resp.get("fan_count", 0),
+            "name": resp.get("name", ""),
+            "fetched_at": datetime.now(timezone.utc).isoformat(),
+            "source": "facebook_api",
+        }
+    except Exception as exc:
+        print(f"[data_fetcher] Facebook fetch failed: {exc}")
+        return None
+
+
+def get_live_social_data(force: bool = False) -> "dict | None":
+    if not INSTAGRAM_TOKEN:
+        return None
+    if not force and os.path.exists(SOCIAL_LIVE_CACHE_FILE):
+        try:
+            with open(SOCIAL_LIVE_CACHE_FILE, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+            fetched_at_str = cached.get("fetched_at", "")
+            if fetched_at_str:
+                fetched_at = datetime.fromisoformat(fetched_at_str.replace("Z", "+00:00"))
+                age = datetime.now(timezone.utc) - fetched_at
+                if age.total_seconds() < SOCIAL_LIVE_CACHE_MAX_AGE_HOURS * 3600:
+                    return cached
+        except Exception:
+            pass
+
+    print("[data_fetcher] Fetching live social media data...")
+    result: dict = {"fetched_at": datetime.now(timezone.utc).isoformat()}
+
+    ig = fetch_instagram_data(INSTAGRAM_TOKEN)
+    if ig:
+        result["instagram"] = ig
+
+    if FACEBOOK_PAGE_TOKEN and FACEBOOK_PAGE_ID:
+        fb = fetch_facebook_data(FACEBOOK_PAGE_TOKEN, FACEBOOK_PAGE_ID)
+        if fb:
+            result["facebook"] = fb
+
+    os.makedirs(os.path.dirname(SOCIAL_LIVE_CACHE_FILE), exist_ok=True)
+    tmp_path = SOCIAL_LIVE_CACHE_FILE + ".tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, SOCIAL_LIVE_CACHE_FILE)
+    except Exception as exc:
+        print(f"[data_fetcher] Social live cache save failed: {exc}")
+
+    return result
+
+
+def load_competitor_social() -> dict:
+    if not os.path.exists(COMPETITOR_SOCIAL_FILE):
+        return {}
+    try:
+        with open(COMPETITOR_SOCIAL_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_competitor_social(data: dict) -> None:
+    os.makedirs(os.path.dirname(COMPETITOR_SOCIAL_FILE), exist_ok=True)
+    tmp_path = COMPETITOR_SOCIAL_FILE + ".tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, COMPETITOR_SOCIAL_FILE)
+    except Exception as exc:
+        print(f"[data_fetcher] Competitor social save failed: {exc}")
+
+
+def _overlay_competitor_social(payload: dict) -> None:
+    comp_social = load_competitor_social()
+    if not comp_social:
+        return
+    for comp in payload.get("competitors", []):
+        cid = comp.get("id")
+        if cid and cid in comp_social:
+            override = comp_social[cid]
+            if "ig" in override:
+                comp["instagram_followers"] = override["ig"]
+            if "fb" in override:
+                comp["facebook_likes"] = override["fb"]
+            if "updated_at" in override:
+                comp["social_updated_at"] = override["updated_at"]
+
+
+def _overlay_live_data(payload: dict) -> None:
+    live = get_live_social_data(force=False)
+    if not live:
+        return
+    sm = payload.get("social_media", {})
+    if live.get("instagram"):
+        ig_live = live["instagram"]
+        ig = sm.get("instagram", {})
+        ig["followers"] = ig_live.get("followers", ig.get("followers"))
+        ig["posts"] = ig_live.get("posts", ig.get("posts"))
+        ig["recent_posts"] = ig_live.get("recent_posts", [])
+        ig["source"] = "live"
+    if live.get("facebook"):
+        fb = sm.get("facebook", {})
+        fb["likes"] = live["facebook"].get("likes", fb.get("likes"))
+        fb["source"] = "live"
+    payload["social_live_fetched_at"] = live.get("fetched_at")
+
+
 def get_data(force: bool = False) -> dict:
     if not force:
         cached = load_cache()
         if cached and not is_cache_stale(cached):
+            _overlay_competitor_social(cached)
+            _overlay_live_data(cached)
             return cached
     print("[data_fetcher] Fetching fresh news data...")
     news = fetch_all_news()
@@ -549,4 +723,6 @@ def get_data(force: bool = False) -> dict:
     }
     save_cache(payload)
     print(f"[data_fetcher] Cached {len(news)} news articles.")
+    _overlay_competitor_social(payload)
+    _overlay_live_data(payload)
     return payload

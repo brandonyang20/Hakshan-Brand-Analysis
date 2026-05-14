@@ -294,6 +294,7 @@
       <p class="text-xs font-medium text-gray-500 mb-3">Recommended Posting Times</p>
       <div id="posting-times" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"></div>
     </div>
+    <div id="recent-posts-section" class="card mt-4 hidden"></div>
   </section>
 
   <!-- ── REVIEWS ── -->
@@ -510,6 +511,7 @@ function renderAll(d) {
   renderHealthDimensions(d.social_media.health_dimensions);
   renderNews(allNews, 'all');
   renderSocialPlatforms(d.social_media);
+  renderRecentPosts(d.social_media);
   renderGrowthChart(d.chart_data.social_growth);
   renderContentChart(d.chart_data.content_breakdown);
   renderPostingTimes();
@@ -530,23 +532,29 @@ function renderAll(d) {
 // ── KPI Cards ─────────────────────────────────────────────────────────────
 function renderKPIs(d) {
   const sm = d.social_media, rv = d.reviews;
+  const isLive = !!d.social_live_fetched_at;
+  const liveBadge = isLive
+    ? `<span class="inline-flex items-center gap-1 mono text-xs text-green-600 font-medium ml-1">
+        <span style="width:6px;height:6px;border-radius:50%;background:#16A34A;display:inline-block;flex-shrink:0"></span>Live
+       </span>`
+    : '';
   const cards = [
     { label:'Instagram', value: sm.instagram.followers.toLocaleString(), sub: sm.instagram.posts + ' posts',
       tag:'Under-grown', tagCls:'tag-amber', note:'Target: 8K–15K followers',
       editKey:'ig_followers', editVal: sm.instagram.followers,
-      dot:'#E1306C' },
+      dot:'#E1306C', liveBadge: isLive ? liveBadge : '' },
     { label:'Facebook', value: sm.facebook.likes.toLocaleString(), sub: 'Page likes',
       tag:'Moderate', tagCls:'tag-amber', note:'Skews 30–55 demographic',
       editKey:'fb_likes', editVal: sm.facebook.likes,
-      dot:'#1877F2' },
+      dot:'#1877F2', liveBadge: isLive ? liveBadge : '' },
     { label:'Google Reviews', value: rv.total_google_reviews, sub: rv.overall_rating_range + ' / 5.0',
       tag:'Strong', tagCls:'tag-green', note: rv.recommendation_rate + ' recommend',
       editKey:null, editVal:null,
-      dot:'#F59E0B' },
+      dot:'#F59E0B', liveBadge: '' },
     { label:'Social Health', value: sm.social_health_score + '/10', sub: 'Brand score',
       tag:'Needs Work', tagCls:'tag-red', note:'TikTok & XHS absent',
       editKey:null, editVal:null,
-      dot:'#DC2626' },
+      dot:'#DC2626', liveBadge: '' },
   ];
   document.getElementById('kpi-grid').innerHTML = cards.map(c => `
     <div class="card flex flex-col gap-2.5">
@@ -554,6 +562,7 @@ function renderKPIs(d) {
         <div class="flex items-center gap-2">
           <span style="width:6px;height:6px;border-radius:50%;background:${c.dot};display:inline-block;flex-shrink:0"></span>
           <span class="text-xs font-medium text-gray-500">${c.label}</span>
+          ${c.liveBadge || ''}
         </div>
         <span class="tag ${c.tagCls}">${c.tag}</span>
       </div>
@@ -719,6 +728,46 @@ function renderSocialPlatforms(sm) {
         ${esc(p.missing)}</p>` : ''}
     </div>
   `).join('');
+}
+
+// ── Recent Posts (live Instagram feed) ────────────────────────────────────
+function renderRecentPosts(sm) {
+  const container = document.getElementById('recent-posts-section');
+  if (!container) return;
+  const posts = (sm.instagram || {}).recent_posts || [];
+  if (!posts.length) { container.classList.add('hidden'); return; }
+  container.classList.remove('hidden');
+  const handle = (sm.instagram || {}).handle || '@hakshan_';
+  container.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+        <span style="width:6px;height:6px;border-radius:50%;background:#E1306C;display:inline-block;flex-shrink:0"></span>
+        Recent Posts · Instagram
+      </p>
+      <span class="inline-flex items-center gap-1 mono text-xs text-green-600 font-medium">
+        <span style="width:5px;height:5px;border-radius:50%;background:#16A34A;display:inline-block"></span>Live
+      </span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      ${posts.map(p => `
+        <a href="${sanitizeLink(p.permalink)}" target="_blank" rel="noopener noreferrer"
+          class="block rounded-lg overflow-hidden border border-gray-100 hover:border-gray-300 transition-all duration-150 cursor-pointer group">
+          ${p.media_url
+            ? `<div class="aspect-square bg-gray-100 overflow-hidden">
+                <img src="${esc(p.media_url)}" alt="" loading="lazy"
+                  class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"/>
+               </div>`
+            : `<div class="aspect-square bg-gray-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909"/>
+                </svg>
+               </div>`}
+          <div class="p-2">
+            ${p.caption ? `<p class="text-xs text-gray-600 line-clamp-2 leading-snug mb-1">${esc(p.caption)}</p>` : ''}
+            <p class="mono text-[10px] text-gray-400">${fmtDate(p.timestamp)}</p>
+          </div>
+        </a>`).join('')}
+    </div>`;
 }
 
 // ── Growth chart ──────────────────────────────────────────────────────────
@@ -1013,7 +1062,7 @@ function renderCompetitorStrategy(competitors) {
         <p class="font-semibold text-gray-900 text-sm">${esc(c.name)} ${c.name_zh ? `<span class="text-gray-400 font-normal text-xs ml-1">${esc(c.name_zh)}</span>` : ''}</p>
         <span class="tag ${c.threat_level && c.threat_level.startsWith('high') ? 'tag-red' : 'tag-amber'} ml-2 flex-shrink-0">${esc(c.threat_label)}</span>
       </div>
-      <p class="text-xs text-gray-400 mb-3">${esc(c.location)} · Est. ${c.est}</p>
+      <p class="text-xs text-gray-400 mb-3">${esc(c.location)} · Est. ${c.est}${c.social_updated_at ? ` <span class="ml-1 inline-flex items-center gap-0.5 ${staleDays(c.social_updated_at)>30?'text-amber-500':'text-gray-300'} text-[10px] mono">· stats ${staleDays(c.social_updated_at)}d ago</span>` : ''}</p>
       <p class="text-xs font-medium text-gray-500 mb-1">Content strategy</p>
       <p class="text-xs text-gray-600 mb-3 leading-relaxed">${esc(c.content_strategy_note)}</p>
       <div class="grid grid-cols-2 gap-3 text-xs">
@@ -1232,6 +1281,12 @@ function fmtDate(str) {
   if (!str) return '';
   try { return new Date(str).toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}); }
   catch { return str; }
+}
+
+function staleDays(dateStr) {
+  if (!dateStr) return 0;
+  try { return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000); }
+  catch { return 0; }
 }
 
 function updateTimestamp(iso) {
