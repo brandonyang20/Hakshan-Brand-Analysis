@@ -13,6 +13,10 @@ def create_app() -> Flask:
     def index():
         return render_template("index.html")
 
+    @app.route("/news")
+    def news_page():
+        return render_template("news.html")
+
     @app.route("/api/data")
     def api_data():
         try:
