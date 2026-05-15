@@ -50,8 +50,8 @@ Report delivery: NONE
 ```
                    ┌──────────────────────────────────────────────────────────┐
                    │                    Supabase                              │
-                   │  tenants  subscriptions  payment_events  review_snapshots│
-                   │  [Auth]   [Row-Level Security per tenant_id]             │
+                   │  tenants  tenant_users  tenant_config  billplz_bills     │
+                   │  review_snapshots  [Auth + Row-Level Security]           │
                    └────────────────────┬─────────────────────────────────────┘
                                         │ postgres
                ┌────────────────────────┼────────────────────────┐
@@ -60,17 +60,17 @@ Report delivery: NONE
      │  Flask Web App     │   │  Scheduler Worker  │   │  Webhook Handler │
      │  (multi-tenant)    │   │  (APScheduler)     │   │  (Flask routes)  │
      │                    │   │                    │   │                  │
-     │  slug → tenant     │   │  03:00 snapshot    │   │  /webhooks/stripe│
-     │  session auth      │   │  08:00 report gen  │   │  /webhooks/billplz
-     │  tier-gated views  │   │  09:00 social sync │   │                  │
+     │  /t/<slug>/        │   │  Sun 03:00 snap    │   │  /webhooks/billplz
+     │  session auth      │   │  Mon 08:00 report  │   │  (Stripe deferred│
+     │  tier-gated views  │   │  6h social sync    │   │   to Month 2-3)  │
      └─────────┬──────────┘   └────────┬───────────┘   └───────┬──────────┘
                │                       │                        │
        ┌───────┼───────────────────────┼───────┐               │
        │       │        External APIs  │       │               │
        ▼       ▼                       ▼       ▼               ▼
-    Meta    Serpapi             Meta       Twilio/         Stripe
-    Graph   (review            Graph      WhatsApp        Billplz
-    API     snapshots)         API        Business        IPN
+    Meta    Serpapi             Meta       Twilio/         Billplz
+    Graph   (review            Graph      WhatsApp        IPN
+    API     snapshots)         API        Business
 ```
 
 ---
@@ -220,6 +220,10 @@ if the first tenant's Serpapi call is slow.
 
 ## 5. Data Flow: Stripe Subscription
 
+> **NOT IN v1 SCOPE — DEFERRED to Month 2-3.**
+> v1 billing is Billplz only (Section 6). Stripe is for international expansion
+> (Singapore, Australia). Do not implement this section in Week 6.
+
 ```
   Customer on /pricing
         │
@@ -287,7 +291,7 @@ if the first tenant's Serpapi call is slow.
       amount        = tier_price_sen (e.g. 199000)
       callback_url  = /webhooks/billplz
       redirect_url  = /payment/success
-    saves billplz_active_bill_id to subscriptions
+    INSERT INTO billplz_bills (tenant_id, billplz_bill_id, amount_sen, status)
         │
         ▼
   Redirect → Billplz payment page
@@ -311,12 +315,12 @@ if the first tenant's Serpapi call is slow.
      HMAC-SHA256(billplz_secret, "bill_id|paid")
      ── fail → 400, log, discard
           │
-  2. check payment_events for bill_id
-     ── duplicate → 200, discard (idempotency)
+  2. check billplz_bills.status for bill_id
+     ── already 'paid' → 200, discard (idempotent)
           │
-  3. activate subscription (same as Stripe path)
-  4. update billplz_active_bill_id
-  5. log payment_events
+  3. UPDATE billplz_bills SET status = 'paid' WHERE billplz_bill_id = $1
+  4. UPDATE tenants SET status = 'active' WHERE id = $tenant_id
+  5. send welcome WhatsApp to tenant.phone (founder notified)
   6. return 200
 
   Monthly renewal:
@@ -330,12 +334,20 @@ if the first tenant's Serpapi call is slow.
 
 ## 7. Data Flow: Multi-Tenant Request Routing
 
+**ADR — Routing: URL-path routing chosen over subdomain routing.**
+Path routing (`/t/<slug>/`) requires zero DNS changes and uses Heroku's existing
+TLS certificate. Subdomain routing (`<slug>.brandpulse.my`) requires a DNS wildcard
+record and Heroku ACM (paid add-on) for wildcard SSL — out of scope for v1.
+
 ```
-  GET https://hakshan.brandpulse.my/dashboard
+  GET https://brandpulse.my/t/hakshan/dashboard
         │
         ▼
-  extract slug from Host header
+  extract slug from URL path
     slug = "hakshan"
+        │
+        ▼
+  validate slug: ^[a-z0-9-]{3,50}$ → reject 400 if invalid
         │
         ▼
   SELECT * FROM tenants WHERE slug = $1
@@ -389,8 +401,8 @@ Not found                 Found
          ┌────────────────┼───────────────────┐             renewal succeeds│
          │                │                   │                             │
    payment          voluntary cancel    billing period ends                 │
-   fails            (Stripe portal      (annual: no auto-renewal)           │
-     │              or support)              │                               │
+   fails            (WhatsApp/email     (manual renewal in v1)              │
+     │              support request)        │                               │
      ▼                    │                  ▼                               │
 ┌──────────┐              │          ┌─────────────┐                        │
 │ PAST_DUE │              │          │  CANCELLED  │                        │
@@ -653,7 +665,7 @@ State transitions that MUST emit a payment_events row:
 | Billplz payment happy path | POST /checkout/billplz → bill created; simulate IPN paid=true → tenant activated |
 | Billplz IPN replay | Fire same IPN twice → idempotency check returns 200, no duplicate payment_events row |
 | Billplz HMAC failure | Fire IPN with wrong x_signature → 400 returned, no DB changes |
-| Tenant routing | GET hakshan.brandpulse.my/dashboard → resolves to Hakshan tenant; GET unknown.brandpulse.my/dashboard → 404 |
+| Tenant routing | GET brandpulse.my/t/hakshan/dashboard → resolves to Hakshan tenant; GET brandpulse.my/t/unknown/dashboard → 404 |
 | Auth gate | Unauthenticated GET /dashboard → redirect to /login?next=/dashboard; authenticated → page renders |
 | Tenant isolation | User authenticated as Tenant A; attempt GET Tenant B's slug → 403 |
 | Session expiry | Session older than 30 days → redirect to /login; re-auth → redirect to original page |
@@ -724,7 +736,13 @@ Attack vectors:
 Mitigations required:
   1. Supabase Row-Level Security (RLS) on ALL tables:
        CREATE POLICY tenant_isolation ON review_snapshots
-         USING (tenant_id = auth.jwt() ->> 'tenant_id');
+         USING (tenant_id = (
+           SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
+         ));
+     -- Uses auth.uid() (from the JWT sub claim — always present in Supabase Auth)
+     -- joined to tenant_users. Do NOT use auth.jwt() ->> 'tenant_id': Supabase
+     -- default JWTs have no tenant_id claim, causing every query to return zero
+     -- rows silently (blank dashboard, no error).
      -- This makes it physically impossible to query across tenant boundaries
      -- even if application code is buggy
 
@@ -761,23 +779,32 @@ Billplz:
 
 ### 13.3 Secret Storage
 
+**ADR — Token encryption: Fernet (Option B chosen).**
+Supabase Vault requires Pro plan (~$25/month), adding cost before the first paying customer.
+Fernet is free, ~30 lines, and sufficient for v1 at 10 tenants. Schema columns rename from
+`instagram_token text` → `instagram_token_enc text` (Fernet output is base64 text).
+
 ```
 Current:   Single ADMIN_TOKEN in env var — acceptable for single tenant
 Target:    Per-tenant Instagram/Facebook tokens
 
 Wrong:
-  tenants.instagram_token = "EAAB..."  -- plaintext in DB
+  tenant_config.instagram_token text = "EAAB..."  -- plaintext; never store like this
 
-Right:
-  Option A: Supabase Vault (encrypted column)
-    supabase.vault.create_secret("ig_token_hakshan", token_value)
-    store only the secret_id in tenants table
-
-  Option B: Encrypt before insert
+CHOSEN: Fernet encryption before insert
+  Schema:  instagram_token_enc text, facebook_token_enc text  (Fernet base64 output)
+  Env var: TENANT_SECRET_KEY (Heroku config var; never in DB; never logged)
+  Write:
     from cryptography.fernet import Fernet
-    key = os.getenv("TENANT_SECRET_KEY")  -- never in DB
-    encrypted = Fernet(key).encrypt(token.encode())
-    store encrypted bytes in tenants.instagram_token_enc
+    f = Fernet(os.getenv("TENANT_SECRET_KEY").encode())
+    encrypted = f.encrypt(raw_token.encode()).decode()   # base64 str → store in DB
+  Read:
+    decrypted = f.decrypt(row.instagram_token_enc.encode()).decode()
+
+  Key rotation: script re-encrypts all tenant rows with new key.
+                Run before rotating the env var. Takes < 1 minute at 10 tenants.
+
+Deferred: Supabase Vault (Option A) — revisit at Month 2-3 if moving to Pro plan.
 
 Never: log tokens, include in error responses, or store in cache files
 ```
@@ -903,7 +930,7 @@ Based on dependency graph — each phase unblocks the next:
 
 ```
 Phase 1A (Week 1–2): Foundation
-  ├── Supabase schema: tenants, subscriptions, payment_events
+  ├── Supabase schema: tenants, tenant_users, tenant_config, billplz_bills, review_snapshots
   ├── Supabase Auth: magic link setup
   ├── Flask: auth middleware (@require_auth decorator)
   ├── Flask: tenant routing (slug → tenant_id → session)
