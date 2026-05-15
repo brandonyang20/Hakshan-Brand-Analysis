@@ -7,7 +7,7 @@
 
 ## TL;DR
 
-Turn the existing Hakshan brand analysis app into a multi-tenant SaaS serving multi-branch F&B operators in Southeast Asia. The wedge is an automated weekly brand pulse report delivered to the owner's phone — zero login, zero friction. The dashboard and competitor tracking become the upsell. Target RM200–500/month per brand. First 10 paying customers come from direct founder outreach to F&B operators in Klang Valley.
+Turn the existing Hakshan brand analysis app into a multi-tenant subscription SaaS serving multi-branch F&B operators in Southeast Asia. The wedge is an automated weekly brand pulse report delivered to the owner's phone — zero login, zero friction. The dashboard and competitor tracking become the upsell. Subscriptions are monthly or annual (2 months free), billed via Stripe (card) and Billplz (FPX/online banking). No free trial — the free sample report is the demo; payment starts before the second report. Target RM199–800/month per brand. First 10 paying customers come from direct founder outreach in Klang Valley.
 
 ---
 
@@ -189,19 +189,170 @@ Single-tenant Flask app hardcoded for Hakshan. All data lives in `STATIC_DATA` d
 
 ### Tiers
 
-| Tier | Price | Includes | Target |
-|---|---|---|---|
-| **Pulse** | RM199/month | Weekly WhatsApp report (all branches), basic dashboard | First-time buyers, 3–5 branches |
-| **Insight** | RM399/month | Everything in Pulse + competitor tracking module, monthly strategy summary | 5–10 branches, growth-focused operators |
-| **Custom** | RM800+/month | Insight + concierge setup, custom report cadence, Mandarin/BM reports | Groups with 10+ branches or franchisors |
+| Tier | Monthly | Annual (billed yearly) | Annual saving | Includes |
+|---|---|---|---|---|
+| **Pulse** | RM199/month | RM1,990/year *(RM166/month)* | RM398 (2 months free) | Weekly WhatsApp report, basic dashboard, all branches |
+| **Insight** | RM399/month | RM3,990/year *(RM332/month)* | RM798 (2 months free) | Everything in Pulse + competitor tracking, monthly strategy summary |
+| **Custom** | RM800+/month | Quote | Negotiated | Insight + concierge setup, custom cadence, Mandarin/BM reports |
 
-**Annual discount:** 2 months free (pay 10, get 12).
+**No free trial.** The sales demo IS the first manual report — the founder sends it via WhatsApp before the customer pays. Once they see value, they subscribe. Payment starts on day one.
 
 **Why RM199:** Below the psychological RM200 barrier. Cheaper than one hour of a marketing consultant. Cheaper than any Western competitor after currency conversion. Owners can expense it without approval.
 
+**Why annual discount equals exactly 2 months free:** Simple to explain in a WhatsApp conversation ("pay for 10, get 12"). Reduces churn by locking in commitment for a year.
+
 ---
 
-## 8. 90-Day Go-To-Market Plan
+## 8. Subscription Billing Architecture
+
+### Gateway Decision: Stripe + Billplz (dual)
+
+Malaysian F&B operators split between two payment behaviours:
+- **Card payers** (younger founders, startup-adjacent) → Stripe, automatic recurring
+- **FPX / online banking payers** (traditional SME operators) → Billplz, bank-transfer-native
+
+Both gateways are needed. A card-only checkout will lose ~40% of Malaysian SME customers.
+
+### Stripe (card payments)
+
+| Component | Detail |
+|---|---|
+| Product | Stripe Billing with 6 Price objects (3 tiers × monthly + annual) |
+| Checkout | Stripe Checkout (hosted, no PCI burden on our server) |
+| Renewal | Fully automatic — Stripe charges card on cycle date |
+| Failed payment | Stripe retries 3× over 7 days; `invoice.payment_failed` webhook fires |
+| Customer portal | Stripe Customer Portal — self-serve cancel, upgrade, card update |
+| Webhooks consumed | `invoice.payment_succeeded`, `invoice.payment_failed`, `customer.subscription.updated`, `customer.subscription.deleted` |
+
+### Billplz (FPX / online banking)
+
+| Component | Detail |
+|---|---|
+| Product | Billplz Collections (one collection per subscription tier) |
+| Flow | We create a Billplz Bill → customer receives payment link → pays via FPX in their banking app |
+| Monthly renewal | Billplz sends a new bill each month; customer approves in banking app (not truly silent-auto like Stripe) |
+| Annual billing | One bill for the full annual amount — simpler for both parties |
+| IPN webhooks | `paid` event activates/renews tenant; `due` event triggers reminder |
+| Failed payment | If bill not paid by due date, send reminder; grace period before access restriction |
+
+### Subscription Lifecycle
+
+```
+Sign up
+  │
+  ├─ Select plan + billing period (monthly / annual)
+  │
+  ├─ Select payment method
+  │       ├─ Card → Stripe Checkout → subscription created → webhook → tenant ACTIVE
+  │       └─ FPX  → Billplz Bill created → customer pays → IPN → tenant ACTIVE
+  │
+Renewal
+  │       ├─ Stripe: auto-charge on cycle date (silent)
+  │       └─ Billplz: new bill sent → customer approves in banking app
+  │
+Payment failure
+  │       ├─ Day 0: payment failed → send WhatsApp alert to customer
+  │       ├─ Day 3: second attempt / reminder
+  │       ├─ Day 7: access restricted (reports paused, dashboard read-only)
+  │       └─ Day 14: subscription cancelled, tenant deactivated
+  │
+Upgrade (e.g. Pulse → Insight)
+  │       ├─ Stripe: immediate, prorated on current cycle
+  │       └─ Billplz: takes effect on next billing cycle; new bill at new price
+  │
+Cancellation
+          └─ Access continues through end of paid period; no refunds on annual plans
+```
+
+### Database Schema (Supabase)
+
+```sql
+-- Tenants (one row per brand/customer)
+tenants (
+  id          uuid PRIMARY KEY,
+  slug        text UNIQUE NOT NULL,        -- e.g. "hakshan"
+  name        text NOT NULL,
+  email       text NOT NULL,
+  phone       text,                        -- WhatsApp number for report delivery
+  status      text NOT NULL DEFAULT 'active',  -- active | past_due | cancelled | paused
+  created_at  timestamptz DEFAULT now()
+)
+
+-- Subscriptions
+subscriptions (
+  id                    uuid PRIMARY KEY,
+  tenant_id             uuid REFERENCES tenants(id),
+  plan                  text NOT NULL,     -- pulse | insight | custom
+  billing_period        text NOT NULL,     -- monthly | annual
+  status                text NOT NULL,     -- active | past_due | cancelled
+  current_period_start  date NOT NULL,
+  current_period_end    date NOT NULL,
+  amount_myr            numeric(10,2) NOT NULL,
+  payment_method        text NOT NULL,     -- stripe | billplz
+  stripe_customer_id    text,
+  stripe_subscription_id text,
+  billplz_collection_id text,
+  billplz_bill_id       text,
+  created_at            timestamptz DEFAULT now(),
+  updated_at            timestamptz DEFAULT now()
+)
+
+-- Payment events log (full audit trail)
+payment_events (
+  id                uuid PRIMARY KEY,
+  tenant_id         uuid REFERENCES tenants(id),
+  subscription_id   uuid REFERENCES subscriptions(id),
+  event_type        text NOT NULL,  -- payment_succeeded | payment_failed | subscription_cancelled | upgraded
+  amount_myr        numeric(10,2),
+  payment_method    text,
+  gateway_reference text,           -- Stripe invoice ID or Billplz bill ID
+  status            text,
+  created_at        timestamptz DEFAULT now()
+)
+```
+
+### Access Control
+
+Tenant access is gated by `subscriptions.status` and `subscriptions.current_period_end`:
+
+```python
+def tenant_is_active(tenant_id: str) -> bool:
+    sub = get_subscription(tenant_id)
+    if sub.status == "active":
+        return True
+    # Grace period: allow access 7 days past_due before restricting
+    if sub.status == "past_due":
+        return (date.today() - sub.current_period_end).days <= 7
+    return False
+```
+
+### Webhook Endpoints (to build)
+
+| Route | Gateway | Action |
+|---|---|---|
+| `POST /webhooks/stripe` | Stripe | Handle all Stripe Billing events |
+| `POST /webhooks/billplz` | Billplz | Handle IPN payment notifications |
+
+Both endpoints must verify the webhook signature before processing. Stripe uses `stripe-signature` header; Billplz uses HMAC-SHA256 on the payload.
+
+### Phase 1 (manual) → Phase 3 (automated) billing path
+
+**Phase 1 (first 10 customers, Month 1–2):**
+- Collect payment manually via Billplz bill link (founder creates each bill)
+- Track subscription status in a Google Sheet
+- Activate/deactivate tenants manually
+
+**Phase 2 (Month 3+):**
+- Stripe Checkout live for card payers
+- Billplz Collections automated for FPX payers
+- Supabase stores subscription state
+- Webhooks auto-activate / auto-deactivate tenant access
+
+**Never build:** Payment gateway routing logic that tries to auto-detect the customer's preference. Always let them choose explicitly.
+
+---
+
+## 9. 90-Day Go-To-Market Plan
 
 ### Month 1 — First 3 Paying Customers
 
@@ -209,10 +360,10 @@ Single-tenant Flask app hardcoded for Hakshan. All data lives in `STATIC_DATA` d
 
 | Week | Action |
 |---|---|
-| 1 | Generate manual weekly report for 3 F&B contacts (WhatsApp message, no code). Get feedback on format. |
-| 2 | Ask the 3 to pay RM199 for next month. Build the report generator script. |
+| 1 | Send a free sample report (manually written) to 3 F&B contacts via WhatsApp. This is the demo. |
+| 2 | Close payment before sending a second report. Create Billplz bill (RM199 or RM1,990 annual). Report #2 goes out only after payment clears. |
 | 3 | Deliver automated report to 3 paying customers. Collect testimonials. |
-| 4 | Onboard 3 more customers from referrals. |
+| 4 | Onboard 3 more customers from referrals. Repeat: sample report → payment → automated service. |
 
 **Target contacts:** F&B operators in Klang Valley known through Hakshan's network — suppliers, fellow association members, nearby chain operators.
 
@@ -253,7 +404,7 @@ Single-tenant Flask app hardcoded for Hakshan. All data lives in `STATIC_DATA` d
 
 ---
 
-## 9. Success Metrics
+## 10. Success Metrics
 
 ### v1 Validation (Month 1–2)
 - [ ] 3 paying customers before dashboard is built
@@ -274,25 +425,28 @@ Single-tenant Flask app hardcoded for Hakshan. All data lives in `STATIC_DATA` d
 
 ---
 
-## 10. Risks and Mitigations
+## 11. Risks and Mitigations
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | Google review data hard to automate | High | Use Serpapi/DataForSEO for v1; manual fallback for first customers |
 | WhatsApp Business API requires approval | Medium | Use personal WhatsApp for first 10 customers; apply for API concurrently |
 | Instagram API token expiry disrupts reports | Medium | Already handled in codebase; add token health monitoring |
-| Customers don't see enough value in report alone | Low | Offer first 2 weeks free; report includes one "action needed" callout per week |
+| Customers don't pay after seeing demo report | Low | Demo report must include one "action needed" callout that costs them money if ignored. If they won't pay RM199 to avoid that loss, they're not the ICP. |
 | Competitor copies the product | Low | Moat is founder-operator trust and SEA localisation, not technology |
 
 ---
 
-## 11. Open Questions (to resolve by end of Month 1)
+## 12. Open Questions (to resolve by end of Month 1)
 
 1. **Google review data source:** Serpapi vs DataForSEO vs Google Business API — evaluate cost and reliability for 10 branches × 10 tenants.
 2. **WhatsApp delivery:** Personal WhatsApp (manual, immediate) vs Twilio WhatsApp Business API (requires approval, automated) — start manual, automate at 5+ customers.
 3. **Brand name:** "BrandPulse" is a working title. Check trademark availability in MY/SG.
 4. **Legal:** Does scraping competitor follower counts violate any platform ToS? Clarify before public launch.
 5. **Pricing:** Is RM199 too cheap? Test by anchoring at RM299 in month 2 with new customers.
+6. **Billplz recurring:** Confirm whether Billplz Direct Debit (auto-debit from bank account without customer approval each cycle) is available for business accounts — this would make monthly Billplz renewals truly automatic, matching Stripe's behaviour.
+7. **Annual refund policy:** Define clearly before first annual sale. Recommended: no refunds after 30 days, prorated refund within first 30 days.
+8. **SST / tax:** Is the subscription subject to Malaysia Service Tax (SST)? Consult an accountant before first invoice is issued.
 
 ---
 
