@@ -13,6 +13,38 @@ from data_fetcher import (
 
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 
+_REQUIRED_ENV_VARS = {
+    "ADMIN_TOKEN": "Bearer token for POST /api/competitors/social — admin endpoint silently disabled without it",
+}
+
+_OPTIONAL_ENV_VARS = {
+    "INSTAGRAM_ACCESS_TOKEN": "Live Instagram data — dashboard falls back to static counts without it",
+    "FACEBOOK_PAGE_ACCESS_TOKEN": "Live Facebook data — requires FACEBOOK_PAGE_ID too",
+    "FACEBOOK_PAGE_ID": "Live Facebook data — requires FACEBOOK_PAGE_ACCESS_TOKEN too",
+}
+
+# Future-required vars (add to _REQUIRED_ENV_VARS when each phase ships):
+#   FLASK_SECRET_KEY        — Phase 1A: session signing
+#   TENANT_SECRET_KEY       — Phase 1A: Fernet token encryption
+#   SERPAPI_KEY             — Phase 1B: review snapshot service
+#   SUPABASE_URL            — Phase 1A: database
+#   SUPABASE_KEY            — Phase 1A: database
+#   BILLPLZ_WEBHOOK_SECRET  — Phase 2A: billing
+#   TWILIO_AUTH_TOKEN       — Phase 2B: WhatsApp report delivery
+
+
+def startup_checks() -> None:
+    missing = [var for var in _REQUIRED_ENV_VARS if not os.getenv(var)]
+    for var in missing:
+        print(f"[startup] MISSING required env var: {var} — {_REQUIRED_ENV_VARS[var]}")
+    if missing:
+        raise RuntimeError(
+            f"Cannot start: missing required env vars: {', '.join(missing)}"
+        )
+    for var, description in _OPTIONAL_ENV_VARS.items():
+        if not os.getenv(var):
+            print(f"[startup] Optional env var not set: {var} — {description}")
+
 
 def create_app() -> Flask:
     app = Flask(__name__)
@@ -98,6 +130,7 @@ def create_app() -> Flask:
     return app
 
 
+startup_checks()
 app = create_app()
 
 
