@@ -9,6 +9,8 @@
 
 Turn the existing Hakshan brand analysis app into a multi-tenant subscription SaaS serving multi-branch F&B operators in Southeast Asia. The wedge is an automated weekly brand pulse report delivered to the owner's phone — zero login, zero friction. The dashboard and competitor tracking become the upsell. Subscriptions are monthly or annual (2 months free), billed via Stripe (card) and Billplz (FPX/online banking). No free trial — the free sample report is the demo; payment starts before the second report. Target RM199–800/month per brand. First 10 paying customers come from direct founder outreach in Klang Valley.
 
+**Current state:** Single-tenant proof-of-concept hardcoded to Hakshan. Auth, billing, report delivery, and multi-tenancy are all greenfield — not yet built. See `07-scope-review.md` for a full gap analysis.
+
 ---
 
 ## 1. Problem
@@ -32,10 +34,10 @@ The result: owners react to problems instead of preventing them. A branch drops 
 | Signal | Evidence |
 |--------|----------|
 | Founder-market fit | Hakshan is a 5-branch F&B operator. We built this tool for ourselves. |
-| Working prototype | Flask app with IG API, Facebook API, competitor tracking, review aggregation — deployed and running. |
+| Proven data layer | Dashboard UI, Instagram/Facebook API integration, competitor tracking, and review aggregation are working for Hakshan. Auth, billing, report delivery, and multi-tenancy are greenfield — to be built. |
 | Market gap | Birdeye/ReviewTrackers: $200–400/month, US-centric, no SEA localisation, no WhatsApp delivery. |
 | Timing | Post-COVID F&B expansion wave in Malaysia — more multi-branch independents than ever. |
-| Zero SEA competition | No F&B-specialized brand monitoring tool with Malay/Chinese language support exists in MY/SG. |
+| Narrow SEA gap | No FPX-native, WhatsApp-first, Malaysian-priced F&B brand monitoring tool exists. (Note: Momos targets APAC restaurant groups — the gap is specifically pricing and payment localisation, not absence of all competition.) |
 
 ---
 
@@ -45,7 +47,7 @@ The result: owners react to problems instead of preventing them. A branch drops 
 
 | Attribute | Description |
 |-----------|-------------|
-| Business type | F&B chain, non-franchise, Chinese or multi-ethnic cuisine |
+| Business type | F&B chain (any cuisine) — owner controls their own Google Business profiles and social accounts |
 | Outlet count | 3–10 branches |
 | Location | Klang Valley (MY) → expand to SG, Penang, Johor Bahru |
 | Team size | No dedicated marketing person |
@@ -56,8 +58,10 @@ The result: owners react to problems instead of preventing them. A branch drops 
 
 **Counter-ICP (don't target):**
 - Single-outlet F&B (not enough data to make the product useful)
-- Franchise chains with 20+ outlets (need enterprise contract, different sales motion)
+- Chains where head office manages digital presence centrally (the local operator has no control and therefore no pain)
 - Non-F&B businesses (different review platforms, different competitors, different vocabulary)
+
+**Note:** The branch-config mechanism (allowing dynamic addition of branch data per tenant) must be built before any customer can be onboarded. Currently all branch data is hardcoded for Hakshan only.
 
 ---
 
@@ -109,7 +113,9 @@ The existing Hakshan app, made multi-tenant. Owners can:
 - Compare week-over-week trends
 - See the last 6 months of review velocity per branch
 
-**Unlock condition:** After 4 weeks of receiving the report, owner gets a link to the dashboard. Priced separately or included in a higher tier.
+**Unlock condition:** Included in all paid tiers from day 1 (see Section 7 for tier breakdown). Pulse gets a summary view; Insight gets full drill-down with competitor module.
+
+**Prerequisite:** The weekly review delta shown in the report ("▲ 18 new reviews this week") requires a time-series review snapshot service — a nightly job that fetches and stores review counts per branch. This does not currently exist and must be built before the report or dashboard can show weekly deltas. See Section 6 for architecture details.
 
 ### 4.3 Upsell 2: Competitor Tracking Module
 
@@ -124,7 +130,10 @@ Already built for Hakshan. For any brand, track:
 
 ## 5. What We Are NOT Building in v1
 
-| Out of Scope | Why |
+**Must build (not optional for any paying customer):**
+- Customer authentication (login/session) — without this, customer data is publicly accessible. Options: Supabase Auth (magic link or email+password), evaluated in Phase 1.
+
+| Out of Scope for v1 | Why |
 |---|---|
 | TikTok / Xiaohongshu API integration | Gated API access; complex; not required for wedge |
 | AI-generated review responses | Requires LLM cost + quality review; phase 2 |
@@ -133,7 +142,9 @@ Already built for Hakshan. For any brand, track:
 | Multi-language dashboard UI | English-first; Mandarin/Malay in v2 after ICP validation |
 | Influencer tracking | Out of scope; different buyer (agencies, not operators) |
 | Automated Google review request campaigns | Legal risk; phase 2 feature |
-| Self-serve onboarding | Concierge onboarding for first 20 customers — manual is fine |
+
+**Phase 2 (Month 3, not "out of scope"):**
+- Self-serve onboarding — concierge for first 10 customers is fine; self-serve ships in Month 3 alongside Phase 2 multi-tenancy
 
 ---
 
@@ -144,18 +155,21 @@ Single-tenant Flask app hardcoded for Hakshan. All data lives in `STATIC_DATA` d
 
 ### Migration path to multi-tenant
 
-**Phase 1 — Config-driven multi-tenancy (no DB required)**
-- Extract `STATIC_DATA` into a per-tenant JSON config file
-- `data_fetcher.py` reads the config for the active tenant based on a URL slug or subdomain
-- Each tenant gets their own Instagram/Facebook API tokens in env vars or a secrets store
-- Deployment: one Heroku app per tenant (naive but works for first 10 customers)
-- **Effort: ~2 days**
+**Phase 1 — Config-driven multi-tenancy + auth (no DB required)**
+- Extract `STATIC_DATA` into a per-tenant JSON config file (one file per customer)
+- `data_fetcher.py` reads config for the active tenant based on URL slug in request
+- **Single app instance with slug-based routing** — do NOT deploy one app per tenant (10 tenants = 10 dynos = ~$70/month COGS before anything else)
+- Auth layer: Supabase Auth (magic link, no password to manage) gating all dashboard routes
+- Each tenant's Instagram/Facebook tokens stored in Supabase vault or encrypted config
+- **Review snapshot service (new):** Nightly cron job fetches current review count per branch per tenant and stores to `cache/{tenant_slug}/snapshots.json` — enables weekly delta calculation in reports
+- **Effort: ~1 week**
 
 **Phase 2 — Database-backed multi-tenancy**
-- Supabase (already available via MCP) for tenant data, config, subscription status
+- Supabase for tenant data, config, subscription status, and snapshot history
 - One app instance, subdomain routing (`hakshan.brandpulse.my`, `nasi-lemak-abc.brandpulse.my`)
 - Scheduled jobs (APScheduler, already wired) run per-tenant
-- **Effort: ~1 week**
+- Self-serve onboarding form (replaces concierge)
+- **Effort: ~4 weeks** (not 1 week — includes auth migration, tenant isolation, billing webhooks, onboarding)
 
 **Phase 3 — Report delivery pipeline**
 - Twilio/WhatsApp Business API for WhatsApp delivery
@@ -175,8 +189,8 @@ Single-tenant Flask app hardcoded for Hakshan. All data lives in `STATIC_DATA` d
 | Review themes / sentiment | Static analysis text | Manual |
 
 **Critical gap:** Google Business API requires OAuth per-location verification. Alternatives:
-1. Serpapi / DataForSEO (paid, ~$50/month for 500 requests) — recommended for v1
-2. Manual input via admin dashboard — acceptable for first 5 tenants
+1. **Serpapi / DataForSEO — recommended for v1, but check unit economics first.** At weekly polling: 10 tenants × 5 branches × 1 request/week = 50 requests/week = ~200/month. At $50/500 requests that's ~$20/month at 10 tenants ($2/tenant/month COGS) — acceptable. Do NOT poll daily (350 req/day = $245/month = 56% COGS on a RM199 subscription).
+2. Manual input via admin dashboard — acceptable for first 5 tenants before Serpapi is integrated
 3. Google Business Profile API — implement in phase 2 when volume justifies verification effort
 
 ---
@@ -191,9 +205,13 @@ Single-tenant Flask app hardcoded for Hakshan. All data lives in `STATIC_DATA` d
 
 | Tier | Monthly | Annual (billed yearly) | Annual saving | Includes |
 |---|---|---|---|---|
-| **Pulse** | RM199/month | RM1,990/year *(RM166/month)* | RM398 (2 months free) | Weekly WhatsApp report, basic dashboard, all branches |
-| **Insight** | RM399/month | RM3,990/year *(RM332/month)* | RM798 (2 months free) | Everything in Pulse + competitor tracking, monthly strategy summary |
-| **Custom** | RM800+/month | Quote | Negotiated | Insight + concierge setup, custom cadence, Mandarin/BM reports |
+| **Pulse** | RM199/month | RM1,990/year *(RM166/month)* | RM398 (2 months free) | Weekly WhatsApp report + summary dashboard (branch totals, social counts, top alerts) |
+| **Insight** | RM399/month | RM3,990/year *(RM332/month)* | RM798 (2 months free) | Everything in Pulse + full drill-down dashboard, competitor tracking module, AI-drafted monthly strategy summary (founder-reviewed before sending) |
+| **Custom** | RM800+/month | Quote | Negotiated | Insight + concierge setup, custom report cadence, Mandarin/BM reports |
+
+**Pulse vs Insight dashboard boundary:** Pulse gets a read-only summary (totals and alerts only). Insight gets full drill-down per branch, sentiment breakdown, 6-month trend charts, and competitor side-by-side comparison.
+
+**Monthly strategy summary (Insight):** AI-generated draft based on the week's data, reviewed and edited by the founder before sending. Cap Insight at 15 customers until the AI draft quality is validated and the review workflow is under 30 minutes/week.
 
 **No free trial.** The sales demo IS the first manual report — the founder sends it via WhatsApp before the customer pays. Once they see value, they subscribe. Payment starts on day one.
 
@@ -230,10 +248,12 @@ Both gateways are needed. A card-only checkout will lose ~40% of Malaysian SME c
 |---|---|
 | Product | Billplz Collections (one collection per subscription tier) |
 | Flow | We create a Billplz Bill → customer receives payment link → pays via FPX in their banking app |
-| Monthly renewal | Billplz sends a new bill each month; customer approves in banking app (not truly silent-auto like Stripe) |
-| Annual billing | One bill for the full annual amount — simpler for both parties |
+| Monthly renewal | Billplz sends a new bill each month; customer must manually approve in banking app each cycle |
+| Annual billing | One bill for the full annual amount — strongly recommended default for FPX customers (one approval per year vs twelve) |
 | IPN webhooks | `paid` event activates/renews tenant; `due` event triggers reminder |
 | Failed payment | If bill not paid by due date, send reminder; grace period before access restriction |
+
+⚠️ **Churn risk:** Unlike Stripe's silent auto-charge, Billplz monthly requires the customer to consciously open their banking app and approve each cycle. One missed notification = lapsed subscription. Mitigation: default monthly FPX customers toward annual billing with a small discount incentive (e.g., "Pay annually via FPX and save RM398").
 
 ### Subscription Lifecycle
 
@@ -289,10 +309,10 @@ subscriptions (
   current_period_end    date NOT NULL,
   amount_myr            numeric(10,2) NOT NULL,
   payment_method        text NOT NULL,     -- stripe | billplz
-  stripe_customer_id    text,
-  stripe_subscription_id text,
-  billplz_collection_id text,
-  billplz_bill_id       text,
+  stripe_customer_id       text,
+  stripe_subscription_id   text,
+  billplz_collection_id    text,
+  billplz_active_bill_id   text,   -- updated each billing cycle; full history in payment_events
   created_at            timestamptz DEFAULT now(),
   updated_at            timestamptz DEFAULT now()
 )
@@ -335,6 +355,8 @@ def tenant_is_active(tenant_id: str) -> bool:
 
 Both endpoints must verify the webhook signature before processing. Stripe uses `stripe-signature` header; Billplz uses HMAC-SHA256 on the payload.
 
+**Invoice generation:** Stripe auto-generates PDF invoices and emails them to customers. For Billplz customers, the platform must generate and email a receipt after each successful IPN — either via a custom HTML template rendered to PDF, or integration with accounting software. This is a customer support obligation, not optional.
+
 ### Phase 1 (manual) → Phase 3 (automated) billing path
 
 **Phase 1 (first 10 customers, Month 1–2):**
@@ -360,10 +382,12 @@ Both endpoints must verify the webhook signature before processing. Stripe uses 
 
 | Week | Action |
 |---|---|
-| 1 | Send a free sample report (manually written) to 3 F&B contacts via WhatsApp. This is the demo. |
+| 1 | Send a free sample report (manually written by founder) to 3 F&B contacts via WhatsApp. This is the demo. |
 | 2 | Close payment before sending a second report. Create Billplz bill (RM199 or RM1,990 annual). Report #2 goes out only after payment clears. |
-| 3 | Deliver automated report to 3 paying customers. Collect testimonials. |
-| 4 | Onboard 3 more customers from referrals. Repeat: sample report → payment → automated service. |
+| 3 | Deliver manually written report to 3 paying customers (no automation yet). Collect testimonials. Build report generation script in parallel. |
+| 4 | Onboard 3 more customers from referrals. Repeat: sample report → payment → manual delivery. |
+
+**Founder bandwidth constraint:** The founder is simultaneously running a 5-branch restaurant. Hakshan operations and BrandPulse sales compete for the same hours. Weeks 1–4 must be scoped to tasks executable in ~5 hours/week. Do not commit to more outreach volume than that allows.
 
 **Target contacts:** F&B operators in Klang Valley known through Hakshan's network — suppliers, fellow association members, nearby chain operators.
 
@@ -388,9 +412,9 @@ Both endpoints must verify the webhook signature before processing. Stripe uses 
 
 | Week | Action |
 |---|---|
-| 9–10 | Phase 2 multi-tenancy (Supabase). Self-serve onboarding form. |
-| 11 | Pitch story to Says.com / Vulcan Post: "The restaurant that built its own brand radar" |
-| 12 | 10 paying customers, RM2,000–4,000 MRR. Product-market fit signal: are customers referring others? |
+| 9–12 | Phase 2 multi-tenancy (Supabase, auth migration, tenant isolation, billing webhooks). This is a 4-week sprint, not 2 weeks. |
+| 11 | Pitch story to Says.com / Vulcan Post: "The restaurant that built its own brand radar" (runs in parallel with Phase 2 build) |
+| 12 | Self-serve onboarding form ships. 10 paying customers target. Product-market fit signal: are customers referring others? |
 
 ### MRR Targets
 
@@ -408,7 +432,7 @@ Both endpoints must verify the webhook signature before processing. Stripe uses 
 
 ### v1 Validation (Month 1–2)
 - [ ] 3 paying customers before dashboard is built
-- [ ] Weekly report open/engagement rate > 80%
+- [ ] Dashboard link click-through rate > 40% per weekly report (measurable; WhatsApp open rate is not)
 - [ ] 0 customers cancel after their first report
 - [ ] At least 1 customer says "I didn't know that — that's really useful"
 
@@ -429,10 +453,15 @@ Both endpoints must verify the webhook signature before processing. Stripe uses 
 
 | Risk | Likelihood | Mitigation |
 |---|---|---|
-| Google review data hard to automate | High | Use Serpapi/DataForSEO for v1; manual fallback for first customers |
+| **Founder bandwidth** — running 5 branches + building SaaS | **Very High** | Cap GTM at 5 hours/week; hire ops support for Hakshan before scaling BrandPulse past 10 customers |
+| **PDPA compliance** — collecting phone, email, payment data without a privacy policy | **High** | Engage a Malaysian lawyer before first customer signs up; publish privacy policy, consent checkbox, and data retention policy |
+| Google review data hard to automate | High | Serpapi at weekly polling ($2/tenant/month COGS) for v1; manual fallback for first customers |
 | WhatsApp Business API requires approval | Medium | Use personal WhatsApp for first 10 customers; apply for API concurrently |
 | Instagram API token expiry disrupts reports | Medium | Already handled in codebase; add token health monitoring |
-| Customers don't pay after seeing demo report | Low | Demo report must include one "action needed" callout that costs them money if ignored. If they won't pay RM199 to avoid that loss, they're not the ICP. |
+| **Instagram Business Account requirement** — Personal accounts can't use Graph API | Medium | Include "Convert to Business Account" in onboarding checklist; surface clear error if API rejects personal account token |
+| **Google Maps ToS / Serpapi legality** — third-party scraping in grey area | Medium | Serpapi is acceptable v1 workaround; target Google Business Profile API (official) for Phase 2 |
+| Billplz monthly churn — customer must manually approve each cycle | Medium | Default FPX customers to annual billing; Stripe card is lower-churn default for monthly |
+| Customers don't pay after seeing demo report | Low | Demo report must include one "action needed" callout that costs them money if ignored |
 | Competitor copies the product | Low | Moat is founder-operator trust and SEA localisation, not technology |
 
 ---
@@ -447,6 +476,8 @@ Both endpoints must verify the webhook signature before processing. Stripe uses 
 6. **Billplz recurring:** Confirm whether Billplz Direct Debit (auto-debit from bank account without customer approval each cycle) is available for business accounts — this would make monthly Billplz renewals truly automatic, matching Stripe's behaviour.
 7. **Annual refund policy:** Define clearly before first annual sale. Recommended: no refunds after 30 days, prorated refund within first 30 days.
 8. **SST / tax:** Is the subscription subject to Malaysia Service Tax (SST)? Consult an accountant before first invoice is issued.
+9. **Auth method:** Magic link (Supabase, zero-password, easiest for operators) vs email+password vs Google OAuth? Decide before Phase 1 build starts.
+10. **PDPA legal review:** Engage a Malaysian lawyer to review data collection practices, privacy policy, and consent flow before onboarding the first customer.
 
 ---
 
