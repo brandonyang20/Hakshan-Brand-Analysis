@@ -154,11 +154,23 @@ Report delivery: NONE
 
 This pipeline does not exist yet. It is the prerequisite for any weekly delta.
 
+**ADR — Scheduler approach: one iterating job, sequential per tenant.**
+Register a single APScheduler cron job (Sunday 03:00 MYT). The job fetches
+the live tenant list from Supabase at runtime, then processes each tenant
+sequentially with a 30-second delay between tenants. This avoids index-shifting
+bugs (tenant deletion renumbers remaining slots) and automatically includes
+tenants added after the app started, at the cost of slight head-of-line latency
+if the first tenant's Serpapi call is slow.
+
 ```
-  Daily 03:00 MYT (before report generation)
+  Weekly Sunday 03:00 MYT (one APScheduler cron job)
         │
         ▼
-  for each tenant:
+  tenants = supabase.from("tenants").select("*").eq("status","active").execute()
+        │
+        ▼
+  for each tenant in tenants:           ← live list fetched each run
+    sleep(30s between tenants)          ← rate-limit buffer
     for each branch in tenant.config.branches:
         │
         ▼
@@ -193,9 +205,9 @@ This pipeline does not exist yet. It is the prerequisite for any weekly delta.
 
 **Request volume math:**
 ```
-  Tenants × Branches × Daily snapshots
-  = 10 × 5 × 7 = 350 requests/week     ← EXPENSIVE
-  = 10 × 5 × 1 = 50  requests/week     ← USE THIS
+  Tenants × Branches × Weekly snapshots
+  = 10 × 5 × 7 = 350 requests/week     ← EXPENSIVE (if daily)
+  = 10 × 5 × 1 = 50  requests/week     ← USE THIS (weekly)
 
   Serpapi: $50 / 500 req → $5/week = $20/month at 10 tenants
   Per-tenant COGS: $2/month ← acceptable on RM199 subscription
