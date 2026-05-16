@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone
 
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 
 from data_fetcher import (
     get_data,
@@ -15,6 +15,7 @@ ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 
 _REQUIRED_ENV_VARS = {
     "ADMIN_TOKEN": "Bearer token for POST /api/competitors/social — admin endpoint silently disabled without it",
+    "FLASK_SECRET_KEY": "Signs session cookies — required for auth to work",
 }
 
 _OPTIONAL_ENV_VARS = {
@@ -47,7 +48,16 @@ def startup_checks() -> None:
 
 
 def create_app() -> Flask:
+    from auth import SLUG_RE, lookup_tenant
+
     app = Flask(__name__)
+    app.config.update(
+        SECRET_KEY=os.environ["FLASK_SECRET_KEY"],
+        SESSION_COOKIE_SECURE=True,
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        PERMANENT_SESSION_LIFETIME=2592000,  # 30 days
+    )
     os.makedirs(os.path.join(os.path.dirname(__file__), "cache"), exist_ok=True)
 
     @app.route("/")
@@ -126,6 +136,39 @@ def create_app() -> Flask:
             return jsonify({"ok": True, "updated": current})
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
+
+    @app.route("/t/<slug>/dashboard")
+    def tenant_dashboard(slug):
+        if not SLUG_RE.match(slug):
+            return jsonify({"error": "Invalid tenant slug"}), 400
+        tenant = lookup_tenant(slug)
+        if tenant is None:
+            return render_template("404.html"), 404
+        if not session.get("user_id"):
+            return redirect(f"/login?next=/t/{slug}/dashboard")
+        if session.get("tenant_id") != tenant["id"]:
+            return jsonify({"error": "Forbidden"}), 403
+        return render_template("tenant/dashboard.html", tenant_name=tenant["name"], slug=slug)
+
+    @app.route("/login", methods=["GET"])
+    def login_page():
+        return render_template("login.html")
+
+    @app.route("/login", methods=["POST"])
+    def login_submit():
+        flash("Magic link sent — check your email.")
+        return redirect(url_for("login_page"))
+
+    @app.route("/auth/magic")
+    def auth_magic():
+        # Stub: token validation not yet implemented
+        flash("Invalid or expired link.")
+        return redirect(url_for("login_page"))
+
+    @app.route("/logout")
+    def logout():
+        session.clear()
+        return redirect("/")
 
     return app
 
