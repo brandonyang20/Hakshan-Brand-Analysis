@@ -12,8 +12,12 @@ from data_fetcher import (
 )
 
 
-def build_tenant_summary(data: dict) -> dict:
-    """Transform raw STATIC_DATA into CEO dashboard summary."""
+def build_tenant_summary(data: dict, tenant_id: str | None = None) -> dict:
+    """Transform raw STATIC_DATA into CEO dashboard summary.
+
+    When tenant_id is provided, live snapshot data (rating, review count, deltas)
+    from the Phase 1B snapshot service overlays the static fallback values.
+    """
     branches = data.get("branches", [])
     sm = data.get("social_media", {})
     reviews_meta = data.get("reviews", {})
@@ -31,16 +35,40 @@ def build_tenant_summary(data: dict) -> dict:
 
     status_rank = {"alert": 0, "watch": 1, "good": 2, "excellent": 3, "new": 4}
 
+    snapshot_fn = None
+    delta_fn = None
+    if tenant_id:
+        try:
+            from snapshot_service import get_latest_snapshot, get_review_delta
+            snapshot_fn = get_latest_snapshot
+            delta_fn = get_review_delta
+        except ImportError:
+            pass
+
     branch_summaries = []
     for b in branches:
+        branch_id = b.get("id", "")
         rating = b.get("rating")
+        review_count = b.get("review_count", "—")
+        review_delta = None
+
+        if tenant_id and snapshot_fn:
+            snap = snapshot_fn(tenant_id, branch_id)
+            if snap:
+                if snap.get("rating") is not None:
+                    rating = snap["rating"]
+                if snap.get("review_count") is not None:
+                    review_count = "{:,}".format(snap["review_count"])
+            if delta_fn:
+                review_delta = delta_fn(tenant_id, branch_id)
+
         branch_summaries.append({
-            "id": b.get("id", ""),
+            "id": branch_id,
             "name": b.get("name", ""),
             "role": b.get("role", ""),
             "rating": rating,
-            "review_count": b.get("review_count", "—"),
-            "review_delta": None,   # Phase 1B: snapshot service not yet built
+            "review_count": review_count,
+            "review_delta": review_delta,
             "status": classify(rating),
             "watch_areas": b.get("watch_areas") or [],
             "highlights": (b.get("highlights") or [])[:2],
@@ -99,6 +127,7 @@ _OPTIONAL_ENV_VARS = {
     "INSTAGRAM_ACCESS_TOKEN": "Live Instagram data — dashboard falls back to static counts without it",
     "FACEBOOK_PAGE_ACCESS_TOKEN": "Live Facebook data — requires FACEBOOK_PAGE_ID too",
     "FACEBOOK_PAGE_ID": "Live Facebook data — requires FACEBOOK_PAGE_ACCESS_TOKEN too",
+    "SERPAPI_KEY": "Phase 1B review snapshots — weekly rating/count polling per branch; deltas unavailable without it",
 }
 
 # Future-required vars (add to _REQUIRED_ENV_VARS when each phase ships):
@@ -214,6 +243,26 @@ def create_app() -> Flask:
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
+    @app.route("/api/snapshot/run", methods=["POST"])
+    def api_snapshot_run():
+        auth = request.headers.get("Authorization", "")
+        if not ADMIN_TOKEN or auth != f"Bearer {ADMIN_TOKEN}":
+            return jsonify({"error": "Unauthorized"}), 401
+        slug = request.args.get("tenant", "hakshan")
+        if not SLUG_RE.match(slug):
+            return jsonify({"error": "Invalid slug"}), 400
+        tenant = lookup_tenant(slug)
+        if tenant is None:
+            return jsonify({"error": "Tenant not found"}), 404
+        try:
+            from snapshot_service import run_weekly_snapshot
+            data = get_data(force=False)
+            branches = data.get("branches", [])
+            result = run_weekly_snapshot(tenant["id"], branches)
+            return jsonify(result)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
     @app.route("/t/<slug>/dashboard")
     def tenant_dashboard(slug):
         if not SLUG_RE.match(slug):
@@ -251,7 +300,7 @@ def create_app() -> Flask:
         except Exception:
             pass
 
-        summary = build_tenant_summary(data)
+        summary = build_tenant_summary(data, tenant_id=tenant["id"])
         brand_name = data.get("brand", {}).get("name", tenant["name"])
 
         return render_template(
@@ -307,13 +356,28 @@ def setup_scheduler(flask_app: Flask):
             get_live_social_data(force=True)
             print("[scheduler] Social refresh complete.")
 
+        def weekly_snapshot():
+            print("[scheduler] Running weekly review snapshot...")
+            try:
+                from auth import _DEV_TENANTS
+                from snapshot_service import run_weekly_snapshot
+                data = get_data(force=False)
+                branches = data.get("branches", [])
+                for slug, tenant in _DEV_TENANTS.items():
+                    result = run_weekly_snapshot(tenant["id"], branches)
+                    print(f"[scheduler] Snapshot {slug}: {result}")
+            except Exception as exc:
+                print(f"[scheduler] Snapshot error: {exc}")
+
         scheduler.add_job(daily_refresh, trigger="cron", hour=3, minute=0)
         scheduler.add_job(social_refresh, trigger="cron", hour=3, minute=30)
         scheduler.add_job(social_refresh, trigger="cron", hour=9, minute=0)
         scheduler.add_job(social_refresh, trigger="cron", hour=15, minute=0)
         scheduler.add_job(social_refresh, trigger="cron", hour=21, minute=0)
+        # Weekly Sunday 03:15 MYT (= 19:15 UTC Saturday) — after daily_refresh
+        scheduler.add_job(weekly_snapshot, trigger="cron", day_of_week="sun", hour=19, minute=15)
         scheduler.start()
-        print("[scheduler] Daily refresh at 03:00, social refresh every 6h.")
+        print("[scheduler] Daily refresh at 03:00, social refresh every 6h, review snapshot Sunday 03:15 MYT.")
         return scheduler
     except ImportError:
         print("[scheduler] APScheduler not installed — scheduled refresh disabled.")
