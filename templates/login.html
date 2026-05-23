@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Magic Link — BrandPulse</title>
+</head>
+<body>
+  <h1>Magic Link</h1>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul>{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+    {% endif %}
+  {% endwith %}
+  <form method="POST" action="/login">
+    <label for="email">Email</label>
+    <input type="email" id="email" name="email" required>
+    <button type="submit">Send Magic Link</button>
+  </form>
+</body>
+</html>
