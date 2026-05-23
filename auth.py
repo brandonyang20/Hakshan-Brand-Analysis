@@ -50,7 +50,15 @@ def get_supabase_client():
     return create_client(url, key)
 
 
+_DEV_TENANTS = {
+    "hakshan": {"id": "dev-hakshan", "slug": "hakshan", "name": "客善 Hakshan", "status": "active"},
+}
+
+
 def lookup_tenant(slug):
+    # Dev fallback when Supabase not configured
+    if not os.environ.get("SUPABASE_URL"):
+        return _DEV_TENANTS.get(slug)
     try:
         client = get_supabase_client()
         if client is None:

@@ -11,6 +11,83 @@ from data_fetcher import (
     save_competitor_social,
 )
 
+
+def build_tenant_summary(data: dict) -> dict:
+    """Transform raw STATIC_DATA into CEO dashboard summary."""
+    branches = data.get("branches", [])
+    sm = data.get("social_media", {})
+    reviews_meta = data.get("reviews", {})
+
+    def classify(rating):
+        if rating is None:
+            return "new"
+        if rating >= 4.5:
+            return "excellent"
+        if rating >= 4.2:
+            return "good"
+        if rating >= 4.0:
+            return "watch"
+        return "alert"
+
+    status_rank = {"alert": 0, "watch": 1, "good": 2, "excellent": 3, "new": 4}
+
+    branch_summaries = []
+    for b in branches:
+        rating = b.get("rating")
+        branch_summaries.append({
+            "id": b.get("id", ""),
+            "name": b.get("name", ""),
+            "role": b.get("role", ""),
+            "rating": rating,
+            "review_count": b.get("review_count", "—"),
+            "review_delta": None,   # Phase 1B: snapshot service not yet built
+            "status": classify(rating),
+            "watch_areas": b.get("watch_areas") or [],
+            "highlights": (b.get("highlights") or [])[:2],
+            "maps_query": b.get("maps_query", ""),
+        })
+
+    branch_summaries.sort(key=lambda b: status_rank.get(b["status"], 5))
+
+    alerts = []
+    for b in branch_summaries:
+        if b["status"] == "alert":
+            alerts.append({
+                "level": "critical",
+                "message": f"{b['name']}: Google rating below 4.0 ★ — immediate attention needed",
+            })
+        elif b["status"] == "watch":
+            alerts.append({
+                "level": "warning",
+                "message": f"{b['name']}: Rating {b['rating']} ★ — monitoring recommended",
+            })
+
+    rated = [b for b in branch_summaries if b["rating"] is not None]
+    avg_rating = round(sum(b["rating"] for b in rated) / len(rated), 2) if rated else None
+
+    ig = sm.get("instagram", {})
+    fb = sm.get("facebook", {})
+
+    return {
+        "alerts": alerts,
+        "stats": {
+            "avg_rating": avg_rating,
+            "total_reviews": reviews_meta.get("total_google_reviews", "—"),
+            "ig_followers": ig.get("followers", 0),
+            "fb_likes": fb.get("likes", 0),
+            "branch_count": len(branches),
+            "branch_alert": len([b for b in branch_summaries if b["status"] == "alert"]),
+            "branch_watch": len([b for b in branch_summaries if b["status"] == "watch"]),
+            "branch_healthy": len([b for b in branch_summaries if b["status"] in ("excellent", "good")]),
+        },
+        "branches": branch_summaries,
+        "social": {
+            "ig_followers": ig.get("followers", 0),
+            "ig_handle": ig.get("handle", ""),
+            "fb_likes": fb.get("likes", 0),
+        },
+    }
+
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 
 _REQUIRED_ENV_VARS = {
@@ -141,14 +218,50 @@ def create_app() -> Flask:
     def tenant_dashboard(slug):
         if not SLUG_RE.match(slug):
             return jsonify({"error": "Invalid tenant slug"}), 400
-        tenant = lookup_tenant(slug)
-        if tenant is None:
-            return render_template("404.html"), 404
-        if not session.get("user_id"):
-            return redirect(f"/login?next=/t/{slug}/dashboard")
-        if session.get("tenant_id") != tenant["id"]:
-            return jsonify({"error": "Forbidden"}), 403
-        return render_template("tenant/dashboard.html", tenant_name=tenant["name"], slug=slug)
+
+        dev_mode = not os.environ.get("SUPABASE_URL")
+
+        if dev_mode:
+            # Dev fallback: serve Hakshan data without auth when Supabase not configured
+            tenant = {"id": f"dev-{slug}", "name": slug.title(), "slug": slug}
+        else:
+            tenant = lookup_tenant(slug)
+            if tenant is None:
+                return render_template("404.html"), 404
+            if not session.get("user_id"):
+                return redirect(f"/login?next=/t/{slug}/dashboard")
+            if session.get("tenant_id") != tenant["id"]:
+                return jsonify({"error": "Forbidden"}), 403
+
+        data = get_data(force=False)
+
+        # Merge live social if available
+        try:
+            live = get_live_social_data(force=False)
+            if live and live.get("instagram"):
+                data["social_media"]["instagram"]["followers"] = (
+                    live["instagram"].get("followers")
+                    or data["social_media"]["instagram"]["followers"]
+                )
+            if live and live.get("facebook"):
+                data["social_media"]["facebook"]["likes"] = (
+                    live["facebook"].get("likes")
+                    or data["social_media"]["facebook"]["likes"]
+                )
+        except Exception:
+            pass
+
+        summary = build_tenant_summary(data)
+        brand_name = data.get("brand", {}).get("name", tenant["name"])
+
+        return render_template(
+            "tenant/dashboard.html",
+            brand_name=brand_name,
+            slug=slug,
+            summary=summary,
+            dev_mode=dev_mode,
+            now=datetime.now(timezone.utc).strftime("%d %b %Y, %H:%M UTC"),
+        )
 
     @app.route("/login", methods=["GET"])
     def login_page():
