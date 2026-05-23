@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>客善 Hakshan — Brand Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: {
+          sans: ['Inter','sans-serif'],
+          mono: ['Fira Code','monospace'],
+          zh:   ['Noto Sans SC','sans-serif'],
+        }
+      }}
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <style>
+    html { scroll-padding-top: 52px; }
+    body { font-family:'Inter',sans-serif; background:#FAFAFA; }
+    .zh  { font-family:'Noto Sans SC',sans-serif; }
+    .mono{ font-family:'Fira Code',monospace; }
+
+    /* ── Nav ── */
+    .nav-item { font-size:.8125rem; color:#6B7280; cursor:pointer; transition:color .15s; }
+    .nav-item:hover { color:#111827; }
+    .nav-item.active { color:#111827; font-weight:500; }
+
+    /* ── Cards ── */
+    .card { background:#fff; border:1px solid #E5E7EB; border-radius:8px; padding:16px; }
+
+    /* ── Tags/badges ── */
+    .tag { display:inline-flex; align-items:center; padding:2px 7px; border-radius:4px; font-size:.6875rem; font-weight:500; white-space:nowrap; }
+    .tag-red    { background:#FEF2F2; color:#DC2626; }
+    .tag-amber  { background:#FFFBEB; color:#B45309; }
+    .tag-green  { background:#F0FDF4; color:#16A34A; }
+    .tag-blue   { background:#EFF6FF; color:#2563EB; }
+    .tag-gray   { background:#F9FAFB; color:#4B5563; border:1px solid #E5E7EB; }
+    .tag-purple { background:#F5F3FF; color:#7C3AED; }
+
+    /* ── Tabs ── */
+    .tab { padding:5px 12px; font-size:.8125rem; font-weight:500; border-radius:6px; cursor:pointer; transition:all .15s; color:#6B7280; }
+    .tab:hover { background:#F3F4F6; color:#374151; }
+    .tab.active { background:#111827; color:#fff; }
+
+    /* ── Progress ── */
+    .prog-track { width:100%; background:#F3F4F6; border-radius:9999px; height:4px; }
+    .prog-fill  { height:4px; border-radius:9999px; transition:width .7s ease; }
+
+    /* ── Spinner ── */
+    .spin { animation:spin .8s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    /* ── Skeleton ── */
+    .skeleton { background:#F3F4F6; border-radius:8px; animation:pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+
+    /* ── Stars ── */
+    .star-full  { color:#F59E0B; }
+    .star-empty { color:#E5E7EB; }
+
+    /* ── Edit mode ── */
+    .edit-overlay { display:none; }
+    .edit-mode .edit-overlay { display:flex; }
+    .edit-mode .edit-static  { display:none; }
+
+    /* ── Modal ── */
+    #modal-backdrop { display:none; }
+    #modal-backdrop.open { display:flex; }
+    #modal-content h1 { font-weight:700; font-size:1.05rem; margin:1.2rem 0 .35rem; }
+    #modal-content h2 { font-weight:600; font-size:.95rem; border-bottom:1px solid #F3F4F6; padding-bottom:.2rem; margin:.9rem 0 .35rem; }
+    #modal-content h3 { font-weight:600; font-size:.875rem; color:#DC2626; margin:.7rem 0 .25rem; }
+    #modal-content p, #modal-content li { font-size:.85rem; line-height:1.65; color:#374151; }
+    #modal-content ul { padding-left:1.1rem; margin:.35rem 0; }
+    #modal-content table { width:100%; border-collapse:collapse; font-size:.8rem; margin:.6rem 0; }
+    #modal-content th { background:#F9FAFB; padding:.35rem .5rem; text-align:left; border-bottom:1px solid #E5E7EB; font-weight:600; }
+    #modal-content td { padding:.35rem .5rem; border-bottom:1px solid #F3F4F6; }
+    #modal-content code { background:#F3F4F6; padding:.1rem .3rem; border-radius:3px; font-size:.78rem; font-family:'Fira Code',monospace; }
+    #modal-content strong { font-weight:600; color:#111827; }
+    #modal-content blockquote { border-left:2px solid #DC2626; padding-left:.65rem; color:#6B7280; margin:.4rem 0; }
+    #modal-content a { color:#DC2626; text-decoration:underline; }
+
+    /* ── Section label ── */
+    .section-label { font-size:.6875rem; font-weight:500; letter-spacing:.08em; text-transform:uppercase; color:#9CA3AF; display:block; margin-bottom:3px; }
+
+    /* ── Print ── */
+    @media print {
+      header, #news-section, #modal-backdrop { display:none !important; }
+      .no-print { display:none !important; }
+      .card { border:1px solid #E5E7EB; box-shadow:none; break-inside:avoid; }
+      body { background:#fff; }
+      main { padding:0 !important; }
+    }
+
+    /* ── Icon SVG helper ── */
+    .icon { display:inline-block; vertical-align:middle; flex-shrink:0; }
+
+    /* ── Divider ── */
+    .section-divider { border:none; border-top:1px solid #F3F4F6; margin:0; }
+  </style>
+</head>
+<body class="min-h-screen text-gray-900">
+
+<!-- ═══════════════════ HEADER ═══════════════════ -->
+<header class="bg-white border-b border-gray-200 sticky top-0 z-40 no-print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 h-12 flex items-center justify-between gap-4">
+
+    <!-- Logo -->
+    <div class="flex items-center gap-2.5 flex-shrink-0">
+      <div class="w-7 h-7 rounded-md bg-[#DC2626] flex items-center justify-center flex-shrink-0">
+        <span class="zh text-white font-bold text-sm leading-none">客</span>
+      </div>
+      <div class="hidden sm:flex items-center gap-1.5">
+        <span class="text-sm font-semibold text-gray-900">Hakshan</span>
+        <span class="text-gray-300 text-sm">/</span>
+        <span class="text-sm text-gray-500">Brand Dashboard</span>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="hidden lg:flex items-center gap-5">
+      <a href="#overview"     class="nav-item" onclick="setActiveNav(this)">Overview</a>
+      <a href="#news-section" class="nav-item" onclick="setActiveNav(this)">News</a>
+      <a href="#social"       class="nav-item" onclick="setActiveNav(this)">Social</a>
+      <a href="#reviews"      class="nav-item" onclick="setActiveNav(this)">Reviews</a>
+      <a href="#competitors"  class="nav-item" onclick="setActiveNav(this)">Competitors</a>
+      <a href="#strategy"     class="nav-item" onclick="setActiveNav(this)">Strategy</a>
+    </nav>
+
+    <!-- Actions -->
+    <div class="flex items-center gap-1.5 flex-shrink-0">
+      <span id="last-updated" class="mono text-xs text-gray-400 hidden md:block mr-1"></span>
+
+      <svg id="spinner" class="spin w-4 h-4 text-[#DC2626] hidden" viewBox="0 0 24 24" fill="none">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/>
+      </svg>
+
+      <button id="btn-edit" onclick="toggleEditMode()"
+        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all duration-150 cursor-pointer">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+        </svg>
+        <span id="btn-edit-text">Edit</span>
+      </button>
+
+      <button onclick="window.print()"
+        class="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium rounded-md border border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50 transition-all duration-150 cursor-pointer">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.056 48.056 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
+        </svg>
+      </button>
+
+      <button id="btn-refresh"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md bg-[#DC2626] text-white hover:bg-[#B91C1C] transition-all duration-150 cursor-pointer">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
+        </svg>
+        <span id="btn-refresh-text">Refresh</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Error banner -->
+<div id="error-banner" class="hidden max-w-7xl mx-auto px-4 sm:px-6 mt-3 no-print">
+  <div class="bg-red-50 border border-red-200 text-red-700 text-xs rounded-lg px-4 py-2.5 flex justify-between items-center">
+    <span id="error-message"></span>
+    <button onclick="hideError()" class="ml-3 cursor-pointer text-red-400 hover:text-red-600">
+      <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════ MAIN ═══════════════════ -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-14">
+
+  <!-- ── OVERVIEW ── -->
+  <section id="overview">
+
+    <!-- Brand header -->
+    <div class="pb-8 mb-8 border-b border-gray-100">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <span class="section-label">Brand Intelligence · May 2026</span>
+          <h1 class="text-xl font-semibold text-gray-900 mt-1 mb-1 flex items-center gap-2">
+            <span class="zh">客善</span><span class="text-gray-300 font-light">·</span>Hakshan
+          </h1>
+          <p class="text-sm text-gray-500">Malaysia's first charity-embedded Hakka dining concept · 5 branches · Klang Valley</p>
+          <p class="text-xs text-gray-400 mt-1.5 zh">让平凡的一餐，有着非凡的意义 <span class="not-zh text-gray-300 ml-1" style="font-family:Inter">— Making an ordinary meal, extraordinarily meaningful</span></p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 pt-1">
+          <span class="tag tag-amber">Social Score 4.3/10</span>
+          <span class="tag tag-green">Reviews 4.4–4.7 ★</span>
+          <span class="tag tag-blue">~100% Recommend</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI grid -->
+    <div id="kpi-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+      <div class="skeleton h-28 rounded-lg"></div>
+      <div class="skeleton h-28 rounded-lg"></div>
+      <div class="skeleton h-28 rounded-lg"></div>
+      <div class="skeleton h-28 rounded-lg"></div>
+    </div>
+
+    <!-- Radar + dimensions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <span class="section-label">Brand Health Radar</span>
+            <p class="text-sm font-medium text-gray-800">Hakshan vs Ideal Benchmark</p>
+          </div>
+          <button onclick="openModal('brand')"
+            class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+            Full report
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+            </svg>
+          </button>
+        </div>
+        <div class="relative h-60">
+          <canvas id="chart-radar"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <span class="section-label mb-3 block">Dimension Scores</span>
+        <div id="health-dimensions" class="space-y-3.5"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── NEWS ── -->
+  <section id="news-section">
+    <div class="flex items-center justify-between flex-wrap gap-3 mb-5">
+      <div>
+        <span class="section-label">Live Intelligence</span>
+        <p class="text-sm font-medium text-gray-800">Latest News</p>
+      </div>
+      <div class="flex gap-1 no-print">
+        <button class="tab active" onclick="filterNews('all',this)">All</button>
+        <button class="tab" onclick="filterNews('hakshan',this)">Hakshan</button>
+        <button class="tab" onclick="filterNews('competitor',this)">Competitors</button>
+        <button class="tab" onclick="filterNews('industry',this)">Industry</button>
+      </div>
+    </div>
+    <div id="news-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="skeleton h-32 rounded-lg"></div>
+      <div class="skeleton h-32 rounded-lg"></div>
+      <div class="skeleton h-32 rounded-lg"></div>
+    </div>
+  </section>
+
+  <!-- ── SOCIAL ── -->
+  <section id="social">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Platform Analysis</span>
+        <p class="text-sm font-medium text-gray-800">Social Media</p>
+      </div>
+      <button onclick="openModal('social')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-1 space-y-3" id="social-platforms"></div>
+      <div class="lg:col-span-2 space-y-4">
+        <div class="card">
+          <p class="text-xs font-medium text-gray-500 mb-3">Follower Growth — Jan to May 2026</p>
+          <div class="h-44"><canvas id="chart-growth"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-medium text-gray-500">Content Type Breakdown</p>
+            <span class="tag tag-amber">CSR only 8%</span>
+          </div>
+          <div class="h-36"><canvas id="chart-content"></canvas></div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt-4">
+      <p class="text-xs font-medium text-gray-500 mb-3">Recommended Posting Times</p>
+      <div id="posting-times" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2"></div>
+    </div>
+    <div id="recent-posts-section" class="card mt-4 hidden"></div>
+  </section>
+
+  <!-- ── REVIEWS ── -->
+  <section id="reviews">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Per-Branch Analysis</span>
+        <p class="text-sm font-medium text-gray-800">Customer Reviews</p>
+      </div>
+      <button onclick="openModal('reviews')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
+    </div>
+    <div id="branch-tabs" class="flex flex-wrap gap-1.5 mb-5 no-print"></div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div id="branch-detail" class="space-y-4"></div>
+      <div class="space-y-4">
+        <div class="card">
+          <p class="text-xs font-medium text-gray-500 mb-3">Monthly Review Volume — All Branches</p>
+          <div class="h-48"><canvas id="chart-reviews"></canvas></div>
+        </div>
+        <div class="card">
+          <p class="text-xs font-medium text-gray-500 mb-3">Sentiment by Branch</p>
+          <div id="sentiment-bars" class="space-y-2.5"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── COMPETITORS ── -->
+  <section id="competitors">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Competitive Intelligence</span>
+        <p class="text-sm font-medium text-gray-800">Competitor Tracking</p>
+      </div>
+      <button onclick="openModal('competitors')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card">
+        <p class="text-xs font-medium text-gray-500 mb-3">Social Reach Comparison</p>
+        <div id="competitor-table"></div>
+        <div class="mt-4 p-3 bg-red-50 border border-red-100 rounded-lg text-xs text-red-700 leading-relaxed">
+          Hakshan leads digitally but the bar is low. <strong>First mover on TikTok wins the entire Hakka category in Malaysia.</strong>
+        </div>
+      </div>
+      <div class="card">
+        <p class="text-xs font-medium text-gray-500 mb-3">Social Following vs Competitors</p>
+        <div class="h-48"><canvas id="chart-competitor"></canvas></div>
+      </div>
+    </div>
+    <div id="competitor-strategy" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-4"></div>
+  </section>
+
+  <!-- ── STRATEGY ── -->
+  <section id="strategy">
+    <div class="flex items-center justify-between mb-5">
+      <div>
+        <span class="section-label">Roadmap &amp; KPIs</span>
+        <p class="text-sm font-medium text-gray-800">Campaign Strategy</p>
+      </div>
+      <button onclick="openModal('strategy')"
+        class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer no-print">
+        Full report
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="kpi-progress" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+      <div class="card">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-xs font-medium text-gray-500">Action Roadmap</p>
+          <div class="flex gap-1">
+            <button class="tab active" onclick="switchRecTab('h1',this)">Now</button>
+            <button class="tab" onclick="switchRecTab('h2',this)">Soon</button>
+            <button class="tab" onclick="switchRecTab('h3',this)">Plan</button>
+          </div>
+        </div>
+        <div id="recs-h1" class="space-y-1.5"></div>
+        <div id="recs-h2" class="space-y-1.5 hidden"></div>
+        <div id="recs-h3" class="space-y-1.5 hidden"></div>
+      </div>
+      <div class="card">
+        <p class="text-xs font-medium text-gray-500 mb-3">KPI Targets</p>
+        <div id="kpi-table"></div>
+      </div>
+    </div>
+
+    <span class="section-label mb-3 block">5 Branch Locations</span>
+    <div id="branch-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 mb-8">
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
+      <div class="skeleton h-48 rounded-lg"></div>
+    </div>
+
+    <span class="section-label mb-3 block">Signature Dishes</span>
+    <div id="dishes-grid" class="flex flex-wrap gap-2"></div>
+  </section>
+
+</main>
+
+<footer class="mt-16 border-t border-gray-100 no-print">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-gray-400">
+    <span>客善 Hakshan Brand Analysis · Publicly available data · May 2026</span>
+    <span class="mono">News via Google News RSS · Auto-refreshes every 24h</span>
+  </div>
+</footer>
+
+<!-- ═══════════════════ MODAL ═══════════════════ -->
+<div id="modal-backdrop"
+  class="fixed inset-0 z-50 bg-black/40 items-end sm:items-center justify-center p-0 sm:p-4"
+  onclick="closeModal(event)">
+  <div class="bg-white w-full sm:max-w-3xl sm:rounded-xl border border-gray-200 shadow-2xl max-h-[90vh] flex flex-col"
+    onclick="event.stopPropagation()">
+    <div class="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+      <h2 id="modal-title" class="font-semibold text-gray-900 text-sm"></h2>
+      <button onclick="document.getElementById('modal-backdrop').classList.remove('open')"
+        class="cursor-pointer p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors duration-150">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="modal-content" class="overflow-y-auto px-5 py-4 flex-1 prose prose-sm max-w-none">
+      <p class="text-gray-400 text-sm">Loading…</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ JAVASCRIPT ═══════════════════ -->
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let DATA = null, allNews = [], activeFilter = 'all', activeBranch = 'kepong', editMode = false, charts = {};
+
+const SECTION_TITLES = {
+  brand: '01 · Brand Overview', social: '02 · Social Media Analysis',
+  reviews: '03 · Reviews & Sentiment', competitors: '04 · Competitor Analysis',
+  strategy: '05 · Strategy & Recommendations',
+};
+
+// ── Boot ─────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadData(false);
+  document.getElementById('btn-refresh').addEventListener('click', handleRefresh);
+});
+
+// ── Data ─────────────────────────────────────────────────────────────────
+async function loadData(force) {
+  setLoading(true);
+  try {
+    const resp = await fetch(force ? '/api/refresh' : '/api/data', { method: force ? 'POST' : 'GET' });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    DATA = await resp.json();
+    if (DATA.error) throw new Error(DATA.error);
+    applyLocalOverrides(DATA);
+    allNews = DATA.news || [];
+    renderAll(DATA);
+    updateTimestamp(DATA.fetched_at);
+    hideError();
+  } catch(e) { showError('Could not load data: ' + e.message); }
+  finally { setLoading(false); }
+}
+
+async function handleRefresh() {
+  document.getElementById('btn-refresh').disabled = true;
+  await loadData(true);
+  document.getElementById('btn-refresh').disabled = false;
+}
+
+// ── Local overrides ───────────────────────────────────────────────────────
+function applyLocalOverrides(data) {
+  const raw = localStorage.getItem('hakshan_overrides');
+  if (!raw) return;
+  try {
+    const ov = JSON.parse(raw);
+    if (ov.ig_followers) data.social_media.instagram.followers = parseInt(ov.ig_followers);
+    if (ov.fb_likes)     data.social_media.facebook.likes      = parseInt(ov.fb_likes);
+    if (ov.tiktok)       data.social_media.tiktok.followers    = parseInt(ov.tiktok);
+    if (ov.xhs)          data.social_media.xiaohongshu.followers = parseInt(ov.xhs);
+    if (ov.ig_posts)     data.social_media.instagram.posts     = parseInt(ov.ig_posts);
+    if (ov.ig_followers) data.kpi_targets.instagram_followers.current = parseInt(ov.ig_followers);
+    if (ov.fb_likes)     data.kpi_targets.facebook_likes.current      = parseInt(ov.fb_likes);
+    if (ov.tiktok)       data.kpi_targets.tiktok_followers.current    = parseInt(ov.tiktok);
+    if (ov.xhs)          data.kpi_targets.xhs_followers.current       = parseInt(ov.xhs);
+  } catch {}
+}
+
+function saveOverride(key, value) {
+  const ov = JSON.parse(localStorage.getItem('hakshan_overrides') || '{}');
+  ov[key] = value;
+  localStorage.setItem('hakshan_overrides', JSON.stringify(ov));
+}
+
+// ── Master render ─────────────────────────────────────────────────────────
+function renderAll(d) {
+  renderKPIs(d);
+  renderRadar(d.chart_data.brand_health_radar);
+  renderHealthDimensions(d.social_media.health_dimensions);
+  renderNews(allNews, 'all');
+  renderSocialPlatforms(d.social_media);
+  renderRecentPosts(d.social_media);
+  renderGrowthChart(d.chart_data.social_growth);
+  renderContentChart(d.chart_data.content_breakdown);
+  renderPostingTimes();
+  renderBranchTabs(d.branches);
+  renderBranchDetail(d.branches, activeBranch, d.chart_data.sentiment_by_branch);
+  renderReviewTrendChart(d.chart_data.review_trend);
+  renderSentimentBars(d.branches, d.chart_data.sentiment_by_branch);
+  renderCompetitorTable(d.competitors);
+  renderCompetitorChart(d.chart_data.competitor_social_comparison);
+  renderCompetitorStrategy(d.competitors);
+  renderKPIProgress(d.kpi_targets);
+  renderRecommendations(d.recommendations);
+  renderKPITable(d.kpi_targets);
+  renderBranchCards(d.branches);
+  renderDishes(d.signature_dishes);
+}
+
+// ── KPI Cards ─────────────────────────────────────────────────────────────
+function renderKPIs(d) {
+  const sm = d.social_media, rv = d.reviews;
+  const isLive = !!d.social_live_fetched_at;
+  const liveBadge = isLive
+    ? `<span class="inline-flex items-center gap-1 mono text-xs text-green-600 font-medium ml-1">
+        <span style="width:6px;height:6px;border-radius:50%;background:#16A34A;display:inline-block;flex-shrink:0"></span>Live
+       </span>`
+    : '';
+  const cards = [
+    { label:'Instagram', value: sm.instagram.followers.toLocaleString(), sub: sm.instagram.posts + ' posts',
+      tag:'Under-grown', tagCls:'tag-amber', note:'Target: 8K–15K followers',
+      editKey:'ig_followers', editVal: sm.instagram.followers,
+      dot:'#E1306C', liveBadge: isLive ? liveBadge : '' },
+    { label:'Facebook', value: sm.facebook.likes.toLocaleString(), sub: 'Page likes',
+      tag:'Moderate', tagCls:'tag-amber', note:'Skews 30–55 demographic',
+      editKey:'fb_likes', editVal: sm.facebook.likes,
+      dot:'#1877F2', liveBadge: isLive ? liveBadge : '' },
+    { label:'Google Reviews', value: rv.total_google_reviews, sub: rv.overall_rating_range + ' / 5.0',
+      tag:'Strong', tagCls:'tag-green', note: rv.recommendation_rate + ' recommend',
+      editKey:null, editVal:null,
+      dot:'#F59E0B', liveBadge: '' },
+    { label:'Social Health', value: sm.social_health_score + '/10', sub: 'Brand score',
+      tag:'Needs Work', tagCls:'tag-red', note:'TikTok & XHS absent',
+      editKey:null, editVal:null,
+      dot:'#DC2626', liveBadge: '' },
+  ];
+  document.getElementById('kpi-grid').innerHTML = cards.map(c => `
+    <div class="card flex flex-col gap-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span style="width:6px;height:6px;border-radius:50%;background:${c.dot};display:inline-block;flex-shrink:0"></span>
+          <span class="text-xs font-medium text-gray-500">${c.label}</span>
+          ${c.liveBadge || ''}
+        </div>
+        <span class="tag ${c.tagCls}">${c.tag}</span>
+      </div>
+      <div class="relative">
+        <p class="edit-static mono text-2xl font-semibold text-gray-900 leading-none">${c.value}</p>
+        ${c.editKey ? `
+        <div class="edit-overlay items-center gap-1.5">
+          <input type="number" value="${c.editVal}"
+            class="w-28 mono text-lg font-semibold border border-[#DC2626] rounded-md px-2 py-0.5 focus:outline-none focus:ring-1 focus:ring-[#DC2626]"
+            onblur="saveKPIEdit('${c.editKey}', this.value)"
+            onkeydown="if(event.key==='Enter') this.blur()"/>
+          <span class="text-xs text-gray-400">↵</span>
+        </div>` : ''}
+      </div>
+      <div>
+        <p class="text-xs text-gray-500">${c.sub}</p>
+        <p class="text-xs text-gray-400 mt-0.5">${c.note}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+function saveKPIEdit(key, value) {
+  saveOverride(key, value);
+  loadData(false);
+}
+
+// ── Radar chart ───────────────────────────────────────────────────────────
+function renderRadar(rd) {
+  const ctx = document.getElementById('chart-radar').getContext('2d');
+  if (charts.radar) charts.radar.destroy();
+  charts.radar = new Chart(ctx, {
+    type: 'radar',
+    data: {
+      labels: rd.dimensions,
+      datasets: [
+        { label:'Hakshan', data:rd.hakshan, fill:true,
+          backgroundColor:'rgba(220,38,38,.12)', borderColor:'#DC2626',
+          borderWidth:2, pointBackgroundColor:'#DC2626', pointRadius:3 },
+        { label:'Ideal', data:rd.ideal, fill:false,
+          borderColor:'#D1D5DB', borderWidth:1.5, borderDash:[4,3], pointRadius:0 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: { r: { min:0, max:10, ticks:{ stepSize:2, font:{size:9}, color:'#9CA3AF' },
+        pointLabels:{ font:{size:10.5, weight:'500'}, color:'#374151' },
+        grid:{ color:'#F3F4F6' }, angleLines:{ color:'#F3F4F6' } } },
+      plugins:{ legend:{ labels:{ font:{size:11}, color:'#6B7280', boxWidth:10 } } }
+    }
+  });
+}
+
+// ── Health dimensions ─────────────────────────────────────────────────────
+function renderHealthDimensions(dims) {
+  document.getElementById('health-dimensions').innerHTML = Object.entries(dims).map(([dim, score]) => {
+    const pct = (score / 10) * 100;
+    const col = score <= 3 ? '#DC2626' : score <= 5 ? '#B45309' : '#16A34A';
+    const tcol = score <= 3 ? 'text-[#DC2626]' : score <= 5 ? 'text-[#B45309]' : 'text-[#16A34A]';
+    return `
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs text-gray-600">${dim}</span>
+          <span class="mono text-xs font-medium ${tcol}">${score}/10</span>
+        </div>
+        <div class="prog-track">
+          <div class="prog-fill" style="width:0%;background:${col}" data-w="${pct}%"></div>
+        </div>
+      </div>`;
+  }).join('');
+  setTimeout(() => {
+    document.querySelectorAll('.prog-fill[data-w]').forEach(el => el.style.width = el.dataset.w);
+  }, 80);
+}
+
+// ── News ─────────────────────────────────────────────────────────────────
+function renderNews(articles, filter) {
+  const filtered = filter === 'all' ? articles : articles.filter(a => a.category === filter);
+  const container = document.getElementById('news-grid');
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div class="col-span-full card text-center py-12">
+        <p class="text-sm font-medium text-gray-600 mb-1">${articles.length === 0 ? 'News temporarily unavailable' : 'No articles in this category'}</p>
+        <p class="text-xs text-gray-400">Click <strong>Refresh</strong> to fetch the latest news from Google News RSS.</p>
+      </div>`;
+    return;
+  }
+  const catTag = { hakshan:'tag-red', competitor:'tag-amber', industry:'tag-blue' };
+  const catLabel = { hakshan:'Hakshan', competitor:'Competitor', industry:'Industry' };
+  const visible = filtered.slice(0, 10);
+  container.innerHTML = visible.map(a => `
+    <a href="${sanitizeLink(a.link)}" target="_blank" rel="noopener noreferrer"
+      class="block bg-white border border-gray-200 rounded-lg p-4 cursor-pointer transition-all duration-150 hover:border-gray-300 hover:shadow-sm flex flex-col gap-2.5">
+      <div class="flex items-start justify-between gap-2">
+        <h3 class="text-sm font-medium text-gray-900 leading-snug line-clamp-2 flex-1">${esc(a.title)}</h3>
+        <svg class="w-3.5 h-3.5 text-gray-300 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+      </div>
+      ${a.description ? `<p class="text-xs text-gray-500 line-clamp-2 flex-1">${esc(a.description)}</p>` : ''}
+      <div class="flex items-center gap-2 pt-2 border-t border-gray-50 mt-auto">
+        <span class="tag ${catTag[a.category] || 'tag-gray'}">${catLabel[a.category] || a.category}</span>
+        ${a.source ? `<span class="text-xs text-gray-500 truncate max-w-[110px]">${esc(a.source)}</span>` : ''}
+        <span class="mono text-xs text-gray-400 ml-auto">${fmtDate(a.pub_date)}</span>
+      </div>
+    </a>
+  `).join('');
+  if (filtered.length > 10) {
+    const btn = document.createElement('div');
+    btn.className = 'col-span-full flex justify-center mt-2';
+    btn.innerHTML = `<a href="/news" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-all duration-150 cursor-pointer">
+      See all ${filtered.length} articles
+      <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+    </a>`;
+    container.appendChild(btn);
+  }
+}
+
+function filterNews(cat, btn) {
+  activeFilter = cat;
+  document.querySelectorAll('#news-section .tab').forEach(b => b.classList.toggle('active', b === btn));
+  renderNews(allNews, cat);
+}
+
+// ── Social Platforms ──────────────────────────────────────────────────────
+function renderSocialPlatforms(sm) {
+  const platforms = [
+    { color:'#E1306C', name:'Instagram', handle:sm.instagram.handle,
+      value:sm.instagram.followers.toLocaleString(), unit:'followers',
+      tagCls: sm.instagram.status==='absent' ? 'tag-red' : 'tag-amber',
+      label:sm.instagram.label, note:sm.instagram.note,
+      best:sm.instagram.best_content, missing:sm.instagram.missing },
+    { color:'#1877F2', name:'Facebook', handle:sm.facebook.page,
+      value:sm.facebook.likes.toLocaleString(), unit:'likes',
+      tagCls:'tag-amber', label:sm.facebook.label, note:sm.facebook.note,
+      best:sm.facebook.best_content, missing:sm.facebook.missing },
+    { color:'#000', name:'TikTok', handle:'Not on platform',
+      value:'0', unit:'followers',
+      tagCls:'tag-red', label:sm.tiktok.label, note:sm.tiktok.note,
+      best:'', missing:'' },
+    { color:'#FF2442', name:'小红书 XHS', handle:'Not on platform',
+      value:'0', unit:'followers',
+      tagCls:'tag-red', label:sm.xiaohongshu.label, note:sm.xiaohongshu.note,
+      best:'', missing:'' },
+  ];
+  document.getElementById('social-platforms').innerHTML = platforms.map(p => `
+    <div class="card">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span style="width:8px;height:8px;border-radius:50%;background:${p.color};display:inline-block;flex-shrink:0"></span>
+          <span class="text-xs font-medium text-gray-800">${p.name}</span>
+        </div>
+        <span class="tag ${p.tagCls}">${p.label}</span>
+      </div>
+      <p class="mono text-xl font-semibold text-gray-900 mb-0.5">${p.value} <span class="text-xs font-normal text-gray-400 not-mono" style="font-family:Inter">${p.unit}</span></p>
+      <p class="text-xs text-gray-400 mb-1.5">${p.handle}</p>
+      <p class="text-xs text-gray-500 leading-snug">${esc(p.note)}</p>
+      ${p.best ? `<p class="text-xs text-[#16A34A] mt-1.5 flex items-start gap-1">
+        <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
+        ${esc(p.best)}</p>` : ''}
+      ${p.missing ? `<p class="text-xs text-[#B45309] mt-0.5 flex items-start gap-1">
+        <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+        ${esc(p.missing)}</p>` : ''}
+    </div>
+  `).join('');
+}
+
+// ── Recent Posts (live Instagram feed) ────────────────────────────────────
+function renderRecentPosts(sm) {
+  const container = document.getElementById('recent-posts-section');
+  if (!container) return;
+  const posts = (sm.instagram || {}).recent_posts || [];
+  if (!posts.length) { container.classList.add('hidden'); return; }
+  container.classList.remove('hidden');
+  const handle = (sm.instagram || {}).handle || '@hakshan_';
+  container.innerHTML = `
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-xs font-medium text-gray-500 flex items-center gap-1.5">
+        <span style="width:6px;height:6px;border-radius:50%;background:#E1306C;display:inline-block;flex-shrink:0"></span>
+        Recent Posts · Instagram
+      </p>
+      <span class="inline-flex items-center gap-1 mono text-xs text-green-600 font-medium">
+        <span style="width:5px;height:5px;border-radius:50%;background:#16A34A;display:inline-block"></span>Live
+      </span>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+      ${posts.map(p => `
+        <a href="${sanitizeLink(p.permalink)}" target="_blank" rel="noopener noreferrer"
+          class="block rounded-lg overflow-hidden border border-gray-100 hover:border-gray-300 transition-all duration-150 cursor-pointer group">
+          ${p.media_url
+            ? `<div class="aspect-square bg-gray-100 overflow-hidden">
+                <img src="${esc(p.media_url)}" alt="" loading="lazy"
+                  class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200"/>
+               </div>`
+            : `<div class="aspect-square bg-gray-100 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                  <path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909"/>
+                </svg>
+               </div>`}
+          <div class="p-2">
+            ${p.caption ? `<p class="text-xs text-gray-600 line-clamp-2 leading-snug mb-1">${esc(p.caption)}</p>` : ''}
+            <p class="mono text-[10px] text-gray-400">${fmtDate(p.timestamp)}</p>
+          </div>
+        </a>`).join('')}
+    </div>`;
+}
+
+// ── Growth chart ──────────────────────────────────────────────────────────
+function renderGrowthChart(sg) {
+  const ctx = document.getElementById('chart-growth').getContext('2d');
+  if (charts.growth) charts.growth.destroy();
+  charts.growth = new Chart(ctx, {
+    type:'line',
+    data: {
+      labels: sg.labels,
+      datasets: [
+        { label:'Instagram', data:sg.instagram, borderColor:'#E1306C', backgroundColor:'rgba(225,48,108,.06)', fill:true, tension:.4, pointRadius:3, pointHoverRadius:5 },
+        { label:'Facebook',  data:sg.facebook,  borderColor:'#1877F2', backgroundColor:'rgba(24,119,242,.05)', fill:true, tension:.4, pointRadius:3, pointHoverRadius:5 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        y:{ beginAtZero:false, ticks:{font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'} },
+        x:{ ticks:{font:{size:10},color:'#9CA3AF'}, grid:{display:false} }
+      },
+      plugins:{ legend:{ labels:{ font:{size:11}, color:'#6B7280', boxWidth:10, usePointStyle:true } } }
+    }
+  });
+}
+
+// ── Content chart ──────────────────────────────────────────────────────────
+function renderContentChart(cb) {
+  const ctx = document.getElementById('chart-content').getContext('2d');
+  if (charts.content) charts.content.destroy();
+  charts.content = new Chart(ctx, {
+    type:'bar',
+    data: {
+      labels: cb.types,
+      datasets:[{ label:'% of posts', data:cb.percentages,
+        backgroundColor:['#DC2626','#D97706','#059669','#2563EB','#7C3AED'],
+        borderRadius:4, borderSkipped:false }]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales: {
+        x:{ max:60, ticks:{callback:v=>v+'%', font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'} },
+        y:{ ticks:{font:{size:10},color:'#6B7280'}, grid:{display:false} }
+      },
+      plugins:{ legend:{display:false} }
+    }
+  });
+}
+
+// ── Posting times ─────────────────────────────────────────────────────────
+function renderPostingTimes() {
+  const times = [
+    {day:'Mon',time:'8am', platform:'Facebook',tip:'Morning scroll'},
+    {day:'Tue',time:'12pm',platform:'Instagram',tip:'Lunch peak'},
+    {day:'Wed',time:'12pm',platform:'Facebook',tip:'Mid-week lunch'},
+    {day:'Thu',time:'7pm', platform:'Instagram',tip:'Post-dinner'},
+    {day:'Sat',time:'11am',platform:'Instagram',tip:'Weekend browse'},
+    {day:'Sun',time:'6pm', platform:'Facebook',tip:'Evening wind-down'},
+  ];
+  document.getElementById('posting-times').innerHTML = times.map(t => `
+    <div class="bg-gray-50 border border-gray-100 rounded-lg p-3 text-center">
+      <p class="text-xs font-semibold text-[#DC2626] mb-1">${t.day}</p>
+      <p class="mono text-lg font-semibold text-gray-900">${t.time}</p>
+      <p class="text-xs font-medium text-gray-600 mt-1">${t.platform}</p>
+      <p class="text-xs text-gray-400 mt-0.5 leading-tight">${t.tip}</p>
+    </div>
+  `).join('');
+}
+
+// ── Branch tabs ───────────────────────────────────────────────────────────
+function renderBranchTabs(branches) {
+  document.getElementById('branch-tabs').innerHTML = branches.map(b => `
+    <button class="tab ${b.id === activeBranch ? 'active' : ''}" onclick="switchBranch('${b.id}',this)">
+      ${b.name.split(',')[0]}
+      ${b.id === 'sri_petaling' ? '<span class="ml-1 tag tag-purple" style="font-size:.6rem">New</span>' : ''}
+    </button>
+  `).join('');
+}
+
+function switchBranch(id, btn) {
+  activeBranch = id;
+  document.querySelectorAll('#branch-tabs .tab').forEach(b => b.classList.toggle('active', b === btn));
+  if (DATA) renderBranchDetail(DATA.branches, id, DATA.chart_data.sentiment_by_branch);
+}
+
+function renderBranchDetail(branches, branchId, sentimentData) {
+  const b = branches.find(x => x.id === branchId);
+  if (!b) return;
+  const sent = sentimentData[branchId] || {};
+  const roleTag = {Flagship:'tag-red',Active:'tag-green',Newest:'tag-purple','Active-Growing':'tag-blue'}[b.role] || 'tag-gray';
+  document.getElementById('branch-detail').innerHTML = `
+    <div class="card">
+      <div class="flex items-start justify-between mb-3">
+        <div>
+          <h3 class="font-semibold text-gray-900 text-sm">${esc(b.name)}</h3>
+          <p class="text-xs text-gray-400 mt-0.5">${esc(b.address)}</p>
+        </div>
+        <span class="tag ${roleTag} ml-2 flex-shrink-0">${b.role}</span>
+      </div>
+      <div class="flex items-center gap-2.5 mb-4">
+        <span class="mono text-xl font-semibold text-gray-900">${b.rating || '—'}</span>
+        <span>${makeStars(b.rating)}</span>
+        <span class="tag tag-gray">${b.review_count} reviews</span>
+      </div>
+      ${sent.positive !== undefined ? `
+      <div class="mb-4">
+        <p class="text-xs font-medium text-gray-500 mb-2">Sentiment Breakdown</p>
+        <div class="space-y-1.5">
+          ${sentBar('Positive', sent.positive, '#16A34A')}
+          ${sentBar('Neutral',  sent.neutral,  '#9CA3AF')}
+          ${sentBar('Negative', sent.negative, '#DC2626')}
+        </div>
+      </div>` : ''}
+      <div class="mb-3">
+        <p class="text-xs font-medium text-gray-500 mb-1.5">What customers love</p>
+        ${b.highlights.map(h => `
+          <p class="text-xs text-gray-600 flex items-start gap-1.5 mb-1">
+            <svg class="w-3 h-3 text-[#16A34A] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <path d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>${esc(h)}</p>`).join('')}
+      </div>
+      ${b.watch_areas && b.watch_areas.length ? `
+      <div class="mb-3">
+        <p class="text-xs font-medium text-gray-500 mb-1.5">Watch areas</p>
+        ${b.watch_areas.map(w => `
+          <p class="text-xs text-[#B45309] flex items-start gap-1.5 mb-1">
+            <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+            </svg>${esc(w)}</p>`).join('')}
+      </div>` : ''}
+      ${b.best_dishes && b.best_dishes.length ? `
+      <div class="mb-3">
+        <p class="text-xs font-medium text-gray-500 mb-1.5">Best dishes here</p>
+        <div class="flex flex-wrap gap-1.5">${b.best_dishes.map(d => `<span class="tag tag-red">${esc(d)}</span>`).join('')}</div>
+      </div>` : ''}
+      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name+' Malaysia')}"
+         target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-1 mt-3 text-xs text-[#DC2626] hover:underline cursor-pointer">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>
+        </svg>
+        View on Google Maps
+      </a>
+    </div>`;
+}
+
+function sentBar(label, pct, color) {
+  return `
+    <div class="flex items-center gap-2">
+      <span class="w-14 text-xs text-gray-500 flex-shrink-0">${label}</span>
+      <div class="flex-1 prog-track">
+        <div class="prog-fill" style="width:${pct}%;background:${color}"></div>
+      </div>
+      <span class="mono w-8 text-xs font-medium text-right text-gray-600">${pct}%</span>
+    </div>`;
+}
+
+// ── Review trend chart ────────────────────────────────────────────────────
+function renderReviewTrendChart(rt) {
+  const ctx = document.getElementById('chart-reviews').getContext('2d');
+  if (charts.reviews) charts.reviews.destroy();
+  charts.reviews = new Chart(ctx, {
+    type:'bar',
+    data: {
+      labels: rt.labels,
+      datasets: [
+        {label:'Kepong',       data:rt.kepong,       backgroundColor:'#DC2626', stack:'s'},
+        {label:'Subang',       data:rt.subang,       backgroundColor:'#D97706', stack:'s'},
+        {label:'Puchong',      data:rt.puchong,      backgroundColor:'#059669', stack:'s'},
+        {label:'Cheras',       data:rt.cheras,       backgroundColor:'#2563EB', stack:'s'},
+        {label:'Sri Petaling', data:rt.sri_petaling, backgroundColor:'#7C3AED', stack:'s'},
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        x:{stacked:true, ticks:{font:{size:10},color:'#9CA3AF'}, grid:{display:false}},
+        y:{stacked:true, ticks:{font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'}}
+      },
+      plugins:{ legend:{labels:{font:{size:10},color:'#6B7280',boxWidth:10,usePointStyle:true}} }
+    }
+  });
+}
+
+// ── Sentiment bars ────────────────────────────────────────────────────────
+function renderSentimentBars(branches, sentimentData) {
+  document.getElementById('sentiment-bars').innerHTML = branches.map(b => {
+    const s = sentimentData[b.id] || {};
+    if (!s.positive) return '';
+    return `
+      <div>
+        <p class="text-xs font-medium text-gray-600 mb-1">${b.name.split(',')[0]}</p>
+        <div class="flex rounded-full overflow-hidden h-3 text-xs">
+          <div style="width:${s.positive}%;background:#16A34A" class="flex items-center justify-center text-white font-semibold" style="font-size:9px">${s.positive}%</div>
+          <div style="width:${s.neutral}%;background:#E5E7EB"  class="flex items-center justify-center text-gray-500 font-semibold" style="font-size:9px">${s.neutral}%</div>
+          <div style="width:${s.negative}%;background:#DC2626" class="flex items-center justify-center text-white font-semibold" style="font-size:9px">${s.negative}%</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Competitor table ──────────────────────────────────────────────────────
+function renderCompetitorTable(competitors) {
+  const hakshan = { name:'客善 Hakshan', location:'Klang Valley (5)',
+    instagram_followers:DATA.social_media.instagram.followers,
+    facebook_likes:DATA.social_media.facebook.likes, tiktok:false, posts_per_month:'4–5' };
+  const all = [hakshan, ...competitors];
+  document.getElementById('competitor-table').innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-gray-400 uppercase tracking-widest" style="font-size:.625rem">
+            <th class="pb-2 pr-3 text-left font-medium">Brand</th>
+            <th class="pb-2 px-2 text-right font-medium">IG</th>
+            <th class="pb-2 px-2 text-right font-medium">FB</th>
+            <th class="pb-2 px-2 text-center font-medium">TikTok</th>
+            <th class="pb-2 pl-2 text-center font-medium">Posts/mo</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${all.map((c,i) => `
+            <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors duration-100 cursor-default">
+              <td class="py-2 pr-3">
+                <p class="font-semibold ${i===0 ? 'text-[#DC2626]' : 'text-gray-800'}">${esc(c.name)}</p>
+                <p class="text-gray-400">${esc(c.location||'')}</p>
+              </td>
+              <td class="py-2 px-2 text-right mono font-medium text-gray-700">${c.instagram_followers ? c.instagram_followers.toLocaleString() : '—'}</td>
+              <td class="py-2 px-2 text-right mono text-gray-500">${c.facebook_likes ? c.facebook_likes.toLocaleString() : '—'}</td>
+              <td class="py-2 px-2 text-center">${c.tiktok ? '<span class="text-[#16A34A]">✓</span>' : '<span class="text-gray-200">✗</span>'}</td>
+              <td class="py-2 pl-2 text-center mono font-medium text-gray-600">${c.posts_per_month || '—'}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ── Competitor chart ──────────────────────────────────────────────────────
+function renderCompetitorChart(cc) {
+  const ctx = document.getElementById('chart-competitor').getContext('2d');
+  if (charts.competitor) charts.competitor.destroy();
+  charts.competitor = new Chart(ctx, {
+    type:'bar',
+    data: {
+      labels: cc.labels,
+      datasets: [
+        {label:'Hakshan',    data:cc.hakshan,    backgroundColor:'#DC2626', borderRadius:4},
+        {label:'Hakka KL',   data:cc.hakka_kl,   backgroundColor:'#D97706', borderRadius:4},
+        {label:'Hakka Pass.',data:cc.hakka_pass, backgroundColor:'#9CA3AF', borderRadius:4},
+        {label:'Ke Ren Lai', data:cc.ke_ren_lai, backgroundColor:'#0EA5E9', borderRadius:4},
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        y:{ticks:{font:{size:10},color:'#9CA3AF'}, grid:{color:'#F9FAFB'}},
+        x:{ticks:{font:{size:10},color:'#6B7280'}, grid:{display:false}}
+      },
+      plugins:{ legend:{labels:{font:{size:11},color:'#6B7280',boxWidth:10,usePointStyle:true}} }
+    }
+  });
+}
+
+// ── Competitor strategy ───────────────────────────────────────────────────
+function renderCompetitorStrategy(competitors) {
+  document.getElementById('competitor-strategy').innerHTML = competitors.map(c => {
+    const cNews = (allNews || [])
+      .filter(a => a.competitor_id && a.competitor_id === c.id)
+      .slice(0, 3);
+    const newsHtml = cNews.length
+      ? `<div class="mt-4 pt-3 border-t border-gray-100">
+          <p class="text-xs font-medium text-gray-500 mb-2 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-[#16A34A] inline-block"></span>
+            Recent mentions
+          </p>
+          <div class="space-y-2">
+            ${cNews.map(a => `
+              <a href="${sanitizeLink(a.link)}" target="_blank" rel="noopener noreferrer"
+                class="block text-xs text-gray-600 hover:text-[#DC2626] leading-snug transition-colors duration-150 cursor-pointer line-clamp-2">
+                ${esc(a.title)}
+              </a>`).join('')}
+          </div>
+        </div>`
+      : `<div class="mt-4 pt-3 border-t border-gray-100">
+          <p class="text-xs text-gray-300 flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-gray-200 inline-block"></span>
+            No recent mentions found
+          </p>
+        </div>`;
+    return `
+    <div class="card">
+      <div class="flex items-start justify-between mb-2">
+        <p class="font-semibold text-gray-900 text-sm">${esc(c.name)} ${c.name_zh ? `<span class="text-gray-400 font-normal text-xs ml-1">${esc(c.name_zh)}</span>` : ''}</p>
+        <span class="tag ${c.threat_level && c.threat_level.startsWith('high') ? 'tag-red' : 'tag-amber'} ml-2 flex-shrink-0">${esc(c.threat_label)}</span>
+      </div>
+      <p class="text-xs text-gray-400 mb-3">${esc(c.location)} · Est. ${c.est}${c.social_updated_at ? ` <span class="ml-1 inline-flex items-center gap-0.5 ${staleDays(c.social_updated_at)>30?'text-amber-500':'text-gray-300'} text-[10px] mono">· stats ${staleDays(c.social_updated_at)}d ago</span>` : ''}</p>
+      <p class="text-xs font-medium text-gray-500 mb-1">Content strategy</p>
+      <p class="text-xs text-gray-600 mb-3 leading-relaxed">${esc(c.content_strategy_note)}</p>
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div>
+          <p class="font-medium text-gray-500 mb-1.5">Strengths</p>
+          ${c.strengths.map(s => `
+            <p class="text-[#16A34A] flex items-start gap-1 mb-1">
+              <svg class="w-3 h-3 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
+              ${esc(s)}</p>`).join('')}
+        </div>
+        <div>
+          <p class="font-medium text-gray-500 mb-1.5">Weaknesses</p>
+          ${c.weaknesses.map(w => `<p class="text-gray-400 flex items-start gap-1 mb-1"><span class="flex-shrink-0">−</span>${esc(w)}</p>`).join('')}
+        </div>
+      </div>
+      ${newsHtml}
+    </div>`;
+  }).join('');
+}
+
+// ── KPI Progress ──────────────────────────────────────────────────────────
+function renderKPIProgress(kpi) {
+  const items = [
+    {label:'Instagram', dot:'#E1306C', ...kpi.instagram_followers, unit:'followers', editKey:'ig_followers'},
+    {label:'Facebook',  dot:'#1877F2', ...kpi.facebook_likes,      unit:'likes',     editKey:'fb_likes'},
+    {label:'TikTok',    dot:'#000',    ...kpi.tiktok_followers,    unit:'followers', editKey:'tiktok'},
+    {label:'XHS',       dot:'#FF2442', ...kpi.xhs_followers,       unit:'followers', editKey:'xhs'},
+  ];
+  document.getElementById('kpi-progress').innerHTML = items.map(k => {
+    const pct3m  = Math.min(100, Math.round((k.current / k.target_3m)  * 100));
+    const pct12m = Math.min(100, Math.round((k.current / k.target_12m) * 100));
+    return `
+      <div class="card">
+        <div class="flex items-center gap-2 mb-3">
+          <span style="width:7px;height:7px;border-radius:50%;background:${k.dot};display:inline-block"></span>
+          <span class="text-xs font-medium text-gray-600">${k.label}</span>
+        </div>
+        <p class="mono text-2xl font-semibold text-gray-900 mb-0.5">${k.current.toLocaleString()}</p>
+        <p class="text-xs text-gray-400 mb-3">${k.unit}</p>
+        <div class="space-y-2">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-gray-400">3-month target: <span class="mono font-medium text-gray-600">${k.target_3m.toLocaleString()}</span></span>
+              <span class="mono font-medium ${pct3m>=100?'text-[#16A34A]':'text-[#B45309]'}">${pct3m}%</span>
+            </div>
+            <div class="prog-track"><div class="prog-fill" style="width:${pct3m}%;background:${pct3m>=100?'#16A34A':'#D97706'}"></div></div>
+          </div>
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-gray-400">12-month target: <span class="mono font-medium text-gray-600">${k.target_12m.toLocaleString()}</span></span>
+              <span class="mono font-medium ${pct12m>=100?'text-[#16A34A]':'text-[#DC2626]'}">${pct12m}%</span>
+            </div>
+            <div class="prog-track"><div class="prog-fill" style="width:${pct12m}%;background:${pct12m>=100?'#16A34A':'#DC2626'}"></div></div>
+          </div>
+        </div>
+        <div class="edit-overlay mt-3 flex-col gap-1">
+          <label class="text-xs text-gray-400 font-medium">Update current ${k.unit}:</label>
+          <input type="number" value="${k.current}"
+            class="w-full border border-[#DC2626] rounded-md px-2 py-1.5 text-sm mono focus:outline-none focus:ring-1 focus:ring-[#DC2626]"
+            onblur="saveKPIEdit('${k.editKey}', this.value)"
+            onkeydown="if(event.key==='Enter') this.blur()"/>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Recommendations ───────────────────────────────────────────────────────
+function renderRecommendations(recs) {
+  const colors = { h1:'#DC2626', h2:'#B45309', h3:'#16A34A' };
+  const bgcols = { h1:'#FEF2F2', h2:'#FFFBEB', h3:'#F0FDF4' };
+  [['h1',recs.h1_quick_wins],['h2',recs.h2_growth],['h3',recs.h3_brand_building]].forEach(([id, items]) => {
+    document.getElementById('recs-'+id).innerHTML = items.map((item,i) => `
+      <div class="flex items-start gap-2.5 p-2.5 rounded-lg hover:bg-gray-50 transition-colors duration-150 cursor-default">
+        <span class="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-semibold"
+          style="background:${bgcols[id]};color:${colors[id]}">${i+1}</span>
+        <p class="text-xs text-gray-600 leading-relaxed">${esc(item)}</p>
+      </div>`).join('');
+  });
+}
+
+function switchRecTab(id, btn) {
+  ['h1','h2','h3'].forEach(h => document.getElementById('recs-'+h).classList.toggle('hidden', h!==id));
+  document.querySelectorAll('#strategy .tab').forEach(b => b.classList.toggle('active', b===btn));
+}
+
+// ── KPI Table ─────────────────────────────────────────────────────────────
+function renderKPITable(kpis) {
+  const rows = [
+    ['Instagram Followers', kpis.instagram_followers.current.toLocaleString(), kpis.instagram_followers.target_3m.toLocaleString(), kpis.instagram_followers.target_12m.toLocaleString()],
+    ['Facebook Likes',      kpis.facebook_likes.current.toLocaleString(),      kpis.facebook_likes.target_3m.toLocaleString(),      kpis.facebook_likes.target_12m.toLocaleString()],
+    ['TikTok Followers',    kpis.tiktok_followers.current.toLocaleString(),    kpis.tiktok_followers.target_3m.toLocaleString(),    kpis.tiktok_followers.target_12m.toLocaleString()],
+    ['XHS Followers',       kpis.xhs_followers.current.toLocaleString(),       kpis.xhs_followers.target_3m.toLocaleString(),       kpis.xhs_followers.target_12m.toLocaleString()],
+    ['Google Review Resp.', kpis.google_response_rate.current_pct+'%',         '60%',                                               kpis.google_response_rate.target_pct+'%'],
+    ['Monthly UGC Posts',   kpis.monthly_ugc_posts.current+'',                '25+',                                               kpis.monthly_ugc_posts.target+'+'],
+  ];
+  document.getElementById('kpi-table').innerHTML = `
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="text-gray-400 uppercase tracking-widest" style="font-size:.6rem">
+          <th class="text-left pb-2 pr-2 font-medium">Metric</th>
+          <th class="text-right pb-2 px-2 font-medium">Now</th>
+          <th class="text-right pb-2 px-2 font-medium text-[#B45309]">3M</th>
+          <th class="text-right pb-2 font-medium text-[#16A34A]">12M</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr class="border-t border-gray-50 hover:bg-gray-50 transition-colors duration-100 cursor-default">
+            <td class="py-1.5 pr-2 font-medium text-gray-700">${r[0]}</td>
+            <td class="py-1.5 px-2 text-right mono text-gray-500">${r[1]}</td>
+            <td class="py-1.5 px-2 text-right mono font-medium text-[#B45309]">${r[2]}</td>
+            <td class="py-1.5 text-right mono font-semibold text-[#16A34A]">${r[3]}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── Branch cards ──────────────────────────────────────────────────────────
+function renderBranchCards(branches) {
+  const roleTag = {Flagship:'tag-red',Active:'tag-green',Newest:'tag-purple','Active-Growing':'tag-blue'};
+  document.getElementById('branch-cards').innerHTML = branches.map(b => `
+    <div class="card flex flex-col gap-2.5">
+      <div class="flex items-start justify-between gap-1">
+        <h3 class="font-semibold text-sm text-gray-900 leading-snug">${esc(b.name)}</h3>
+        <span class="tag ${roleTag[b.role]||'tag-gray'} flex-shrink-0 ml-1">${b.role}</span>
+      </div>
+      <p class="text-xs text-gray-400 leading-relaxed">${esc(b.address)}</p>
+      <div class="flex items-center gap-1.5">
+        <span>${makeStars(b.rating)}</span>
+        ${b.rating ? `<span class="mono text-xs font-semibold text-gray-800">${b.rating}</span>` : '<span class="text-xs text-gray-300">Not rated</span>'}
+        <span class="tag tag-gray ml-auto">${b.review_count}</span>
+      </div>
+      <div class="flex-1">
+        ${b.highlights.slice(0,2).map(h => `
+          <p class="text-xs text-gray-500 flex items-start gap-1 mb-1">
+            <svg class="w-3 h-3 text-[#16A34A] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4.5 12.75l6 6 9-13.5"/></svg>
+            ${esc(h)}</p>`).join('')}
+      </div>
+      <a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name+' Malaysia')}"
+         target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-1 text-xs text-[#DC2626] hover:underline cursor-pointer mt-auto">
+        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>
+        </svg>
+        Google Maps
+      </a>
+    </div>
+  `).join('');
+}
+
+// ── Dishes ────────────────────────────────────────────────────────────────
+function renderDishes(dishes) {
+  document.getElementById('dishes-grid').innerHTML = dishes.map(d => `
+    <span class="tag tag-gray text-xs px-3 py-1.5" style="border-radius:20px">${esc(d)}</span>
+  `).join('');
+}
+
+// ── Modal ─────────────────────────────────────────────────────────────────
+async function openModal(section) {
+  document.getElementById('modal-title').textContent = SECTION_TITLES[section] || section;
+  document.getElementById('modal-content').innerHTML = '<p class="text-gray-400 text-sm animate-pulse">Loading analysis…</p>';
+  document.getElementById('modal-backdrop').classList.add('open');
+  try {
+    const resp = await fetch('/api/analysis/' + section);
+    const data = await resp.json();
+    document.getElementById('modal-content').innerHTML = markdownToHtml(data.content || 'No content available.');
+  } catch {
+    document.getElementById('modal-content').innerHTML = '<p class="text-red-500 text-sm">Could not load analysis.</p>';
+  }
+}
+
+function closeModal(e) { document.getElementById('modal-backdrop').classList.remove('open'); }
+
+function markdownToHtml(md) {
+  return md
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`(.+?)`/g,'<code>$1</code>')
+    .replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>')
+    .replace(/^- (.+)$/gm,'<li>$1</li>')
+    .replace(/(<li>.*<\/li>)/gs,'<ul>$1</ul>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/\n{2,}/g,'</p><p>')
+    .replace(/<p><\/p>/g,'');
+}
+
+// ── Edit mode ─────────────────────────────────────────────────────────────
+function toggleEditMode() {
+  editMode = !editMode;
+  document.body.classList.toggle('edit-mode', editMode);
+  document.getElementById('btn-edit-text').textContent = editMode ? 'Done' : 'Edit';
+  const btn = document.getElementById('btn-edit');
+  btn.style.borderColor = editMode ? '#DC2626' : '';
+  btn.style.color = editMode ? '#DC2626' : '';
+}
+
+// ── Nav ───────────────────────────────────────────────────────────────────
+function setActiveNav(el) {
+  document.querySelectorAll('.nav-item').forEach(l => l.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+function makeStars(rating) {
+  if (rating === null || rating === undefined) return '<span class="text-gray-200">—</span>';
+  const full = Math.floor(rating), half = (rating - full) >= .5 ? 1 : 0, empty = 5 - full - half;
+  return '<span class="star-full">' + '★'.repeat(full) + '</span>' +
+         (half ? '<span class="star-full" style="opacity:.4">★</span>' : '') +
+         '<span class="star-empty">' + '☆'.repeat(empty) + '</span>';
+}
+
+function fmtDate(str) {
+  if (!str) return '';
+  try { return new Date(str).toLocaleDateString('en-MY',{day:'numeric',month:'short',year:'numeric'}); }
+  catch { return str; }
+}
+
+function staleDays(dateStr) {
+  if (!dateStr) return 0;
+  try { return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86400000); }
+  catch { return 0; }
+}
+
+function updateTimestamp(iso) {
+  if (!iso) return;
+  try {
+    const ageMs = Date.now() - new Date(iso).getTime();
+    const h = Math.floor(ageMs / 3600000), m = Math.floor((ageMs % 3600000) / 60000);
+    document.getElementById('last-updated').textContent = `Updated ${h>0?h+'h ':''}${m}m ago`;
+  } catch {}
+}
+
+function setLoading(on) {
+  document.getElementById('spinner').classList.toggle('hidden', !on);
+  document.getElementById('btn-refresh-text').textContent = on ? 'Refreshing…' : 'Refresh';
+}
+
+function showError(msg) {
+  document.getElementById('error-message').textContent = msg;
+  document.getElementById('error-banner').classList.remove('hidden');
+}
+function hideError() { document.getElementById('error-banner').classList.add('hidden'); }
+
+function esc(str) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(str || ''));
+  return d.innerHTML;
+}
+
+function sanitizeLink(url) {
+  if (!url) return '#';
+  try { const u = new URL(url); return (u.protocol==='http:'||u.protocol==='https:') ? url : '#'; }
+  catch { return '#'; }
+}
+</script>
+</body>
+</html>

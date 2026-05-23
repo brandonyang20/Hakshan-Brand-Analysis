@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.env.local
+cache/data.json
+cache/*.tmp
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+build/
+.DS_Store
+.gstack/
+static/css/tailwind.css
+static/css/tailwind.min.css
