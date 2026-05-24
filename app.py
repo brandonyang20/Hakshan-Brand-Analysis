@@ -119,11 +119,11 @@ def build_tenant_summary(data: dict, tenant_id: str | None = None) -> dict:
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
 
 _REQUIRED_ENV_VARS = {
-    "ADMIN_TOKEN": "Bearer token for POST /api/competitors/social — admin endpoint silently disabled without it",
     "FLASK_SECRET_KEY": "Signs session cookies — required for auth to work",
 }
 
 _OPTIONAL_ENV_VARS = {
+    "ADMIN_TOKEN": "Bearer token for POST /api/competitors/social and /api/snapshot/run — admin endpoints disabled without it",
     "INSTAGRAM_ACCESS_TOKEN": "Live Instagram data — dashboard falls back to static counts without it",
     "FACEBOOK_PAGE_ACCESS_TOKEN": "Live Facebook data — requires FACEBOOK_PAGE_ID too",
     "FACEBOOK_PAGE_ID": "Live Facebook data — requires FACEBOOK_PAGE_ACCESS_TOKEN too",
