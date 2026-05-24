@@ -312,6 +312,28 @@ def create_app() -> Flask:
             now=datetime.now(timezone.utc).strftime("%d %b %Y, %H:%M UTC"),
         )
 
+    @app.route("/t/<slug>/snapshot", methods=["POST"])
+    def tenant_snapshot(slug):
+        if not SLUG_RE.match(slug):
+            return jsonify({"error": "Invalid slug"}), 400
+        dev_mode = not os.environ.get("SUPABASE_URL")
+        if dev_mode:
+            tenant = {"id": f"dev-{slug}", "slug": slug}
+        else:
+            tenant = lookup_tenant(slug)
+            if tenant is None:
+                return jsonify({"error": "Not found"}), 404
+            if not session.get("user_id") or session.get("tenant_id") != tenant["id"]:
+                return jsonify({"error": "Forbidden"}), 403
+        try:
+            from snapshot_service import run_weekly_snapshot
+            data = get_data(force=False)
+            branches = data.get("branches", [])
+            result = run_weekly_snapshot(tenant["id"], branches)
+            return jsonify(result)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
     @app.route("/login", methods=["GET"])
     def login_page():
         return render_template("login.html")
@@ -356,8 +378,8 @@ def setup_scheduler(flask_app: Flask):
             get_live_social_data(force=True)
             print("[scheduler] Social refresh complete.")
 
-        def weekly_snapshot():
-            print("[scheduler] Running weekly review snapshot...")
+        def daily_snapshot():
+            print("[scheduler] Running daily review snapshot...")
             try:
                 from auth import _DEV_TENANTS
                 from snapshot_service import run_weekly_snapshot
@@ -374,10 +396,10 @@ def setup_scheduler(flask_app: Flask):
         scheduler.add_job(social_refresh, trigger="cron", hour=9, minute=0)
         scheduler.add_job(social_refresh, trigger="cron", hour=15, minute=0)
         scheduler.add_job(social_refresh, trigger="cron", hour=21, minute=0)
-        # Weekly Sunday 03:15 MYT (= 19:15 UTC Saturday) — after daily_refresh
-        scheduler.add_job(weekly_snapshot, trigger="cron", day_of_week="sun", hour=19, minute=15)
+        # Daily 04:00 MYT (= 20:00 UTC) — after daily_refresh completes
+        scheduler.add_job(daily_snapshot, trigger="cron", hour=20, minute=0)
         scheduler.start()
-        print("[scheduler] Daily refresh at 03:00, social refresh every 6h, review snapshot Sunday 03:15 MYT.")
+        print("[scheduler] Daily refresh 03:00, social every 6h, review snapshot daily 04:00 MYT.")
         return scheduler
     except ImportError:
         print("[scheduler] APScheduler not installed — scheduled refresh disabled.")
