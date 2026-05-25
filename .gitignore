@@ -15,3 +15,4 @@ build/
 .gstack/
 static/css/tailwind.css
 static/css/tailwind.min.css
+scheduler.db
