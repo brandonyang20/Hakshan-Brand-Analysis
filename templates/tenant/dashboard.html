@@ -155,22 +155,28 @@
     <div class="stat-card bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-5">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Total Reviews</p>
       <p class="text-5xl font-extrabold leading-none text-gray-900">{{ summary.stats.total_reviews }}</p>
-      <p class="text-xs text-gray-300 mt-3" title="Available after first weekly snapshot">+— new this week</p>
+      <p class="text-xs text-gray-400 mt-2">across all branches</p>
     </div>
 
-    <!-- Instagram -->
+    <!-- Healthy Branches -->
     <div class="stat-card bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-5">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Instagram</p>
-      <p class="text-5xl font-extrabold leading-none text-gray-900">{{ "{:,}".format(summary.social.ig_followers) }}</p>
-      <p class="text-xs text-gray-500 mt-2">{{ summary.social.ig_handle }}</p>
-      <p class="text-xs text-gray-300 mt-1" title="Available after first weekly snapshot">+— this week</p>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Healthy Branches</p>
+      <p class="text-5xl font-extrabold leading-none text-green-600">{{ summary.stats.branch_healthy }}</p>
+      <p class="text-xs text-gray-400 mt-2">of {{ summary.stats.branch_count }} branches</p>
     </div>
 
-    <!-- Facebook -->
+    <!-- Branches Needing Attention -->
+    {% set issues = summary.stats.branch_alert + summary.stats.branch_watch %}
     <div class="stat-card bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-5">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Facebook Likes</p>
-      <p class="text-5xl font-extrabold leading-none text-gray-900">{{ "{:,}".format(summary.social.fb_likes) }}</p>
-      <p class="text-xs text-gray-300 mt-3" title="Available after first weekly snapshot">+— this week</p>
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Need Attention</p>
+      <p class="text-5xl font-extrabold leading-none {% if summary.stats.branch_alert > 0 %}text-red-600{% elif issues > 0 %}text-amber-600{% else %}text-gray-300{% endif %}">
+        {{ issues if issues > 0 else "—" }}
+      </p>
+      <p class="text-xs mt-2 {% if summary.stats.branch_alert > 0 %}text-red-500{% elif issues > 0 %}text-amber-600{% else %}text-gray-300{% endif %}">
+        {% if summary.stats.branch_alert > 0 %}{{ summary.stats.branch_alert }} critical{% if summary.stats.branch_watch > 0 %}, {{ summary.stats.branch_watch }} watch{% endif %}
+        {% elif issues > 0 %}{{ issues }} to monitor
+        {% else %}all clear{% endif %}
+      </p>
     </div>
 
   </div>
@@ -193,28 +199,39 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {% for b in summary.branches %}
       {% set st = b.status %}
       <div class="branch-card bg-white rounded-xl border border-gray-100 shadow-sm border-l-4 status-{{ st }} flex flex-col">
 
-        <!-- Card header: name + role + status badge -->
+        <!-- Card header: name + role + status badge + health score -->
         <div class="px-5 pt-4 pb-2 flex items-start justify-between gap-2">
           <div class="min-w-0">
             <p class="text-sm font-semibold text-gray-900 leading-snug">{{ b.name }}</p>
             <p class="text-xs text-gray-400 mt-0.5">{{ b.role }}</p>
           </div>
-          {% if st == "excellent" %}
-            <span class="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700 mt-0.5">Excellent</span>
-          {% elif st == "good" %}
-            <span class="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 mt-0.5">Good</span>
-          {% elif st == "watch" %}
-            <span class="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 mt-0.5">Watch</span>
-          {% elif st == "alert" %}
-            <span class="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 mt-0.5 pulse-ring">⚠ Alert</span>
-          {% else %}
-            <span class="flex-shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 mt-0.5">New</span>
-          {% endif %}
+          <div class="flex flex-col items-end gap-1 flex-shrink-0">
+            {% if st == "excellent" %}
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Excellent</span>
+            {% elif st == "good" %}
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">Good</span>
+            {% elif st == "watch" %}
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Watch</span>
+            {% elif st == "alert" %}
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 pulse-ring">⚠ Alert</span>
+            {% else %}
+              <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">New</span>
+            {% endif %}
+            {% if b.health_score is not none %}
+            <span class="text-xs font-bold px-2 py-0.5 rounded-full
+              {% if b.health_score >= 70 %}bg-green-50 text-green-700
+              {% elif b.health_score >= 50 %}bg-blue-50 text-blue-700
+              {% elif b.health_score >= 30 %}bg-amber-50 text-amber-700
+              {% else %}bg-red-50 text-red-700{% endif %}">
+              {{ b.health_score }}/100
+            </span>
+            {% endif %}
+          </div>
         </div>
 
         <!-- Rating + review count -->
@@ -277,6 +294,33 @@
         </div>
         {% endif %}
 
+        <!-- Review velocity sparkline -->
+        {% if b.sparkline and b.sparkline | length >= 2 %}
+        {% set counts = b.sparkline | map(attribute='count') | select('number') | list %}
+        {% if counts | length >= 2 %}
+        {% set mn = counts | min %}
+        {% set mx = counts | max %}
+        {% set rng = mx - mn if mx != mn else 1 %}
+        <div class="px-5 pb-1">
+          <p class="text-xs text-gray-400 mb-1">Review trend</p>
+          <svg width="100%" height="28" viewBox="0 0 100 28" preserveAspectRatio="none" class="overflow-visible">
+            <polyline
+              fill="none"
+              stroke="{% if b.status == 'alert' %}#EF4444{% elif b.status == 'watch' %}#D97706{% elif b.status == 'excellent' %}#16A34A{% else %}#3B82F6{% endif %}"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              points="{% for i in range(counts | length) %}{{ (i / (counts | length - 1) * 100) | round(1) }},{{ (24 - ((counts[i] - mn) / rng * 20)) | round(1) }} {% endfor %}"
+            />
+            {% for i in range(counts | length) %}
+            <circle cx="{{ (i / (counts | length - 1) * 100) | round(1) }}" cy="{{ (24 - ((counts[i] - mn) / rng * 20)) | round(1) }}" r="2"
+              fill="{% if b.status == 'alert' %}#EF4444{% elif b.status == 'watch' %}#D97706{% elif b.status == 'excellent' %}#16A34A{% else %}#3B82F6{% endif %}"/>
+            {% endfor %}
+          </svg>
+        </div>
+        {% endif %}
+        {% endif %}
+
         <!-- Maps link -->
         {% if b.maps_query %}
         <div class="mt-auto px-5 py-3 border-t border-gray-50">
@@ -300,40 +344,121 @@
   <!-- ══════════════════════════════════════════════════════ -->
 
 
+  <!-- ═══════════════════════════════════════════ INTELLIGENCE DIGEST -->
+  {% if summary.digest %}
+  <div class="bg-gradient-to-r from-gray-900 to-gray-800 rounded-xl px-6 py-5 shadow-sm">
+    <div class="flex items-center gap-2 mb-3">
+      <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+        <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.995.869-1.662 1.704-2.025a4 4 0 10-3.408 0C11.131 12.338 11.985 13.005 12 14z"/>
+      </svg>
+      <span class="text-xs font-semibold text-amber-400 uppercase tracking-wide">Weekly Intelligence Digest</span>
+      {% if summary.digest.week_start %}
+      <span class="text-xs text-gray-500 ml-auto">Week of {{ summary.digest.week_start }}</span>
+      {% endif %}
+    </div>
+    <p class="text-gray-100 text-sm leading-relaxed">{{ summary.digest.digest_text }}</p>
+  </div>
+  {% endif %}
+  <!-- ══════════════════════════════════════════════════════ -->
+
+
   <!-- ═══════════════════════════════════════════ SOCIAL PULSE -->
   <div>
-    <h2 class="text-sm font-semibold text-gray-900 mb-4">Social Pulse</h2>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-gray-900">Social Pulse</h2>
+      <p class="text-xs text-gray-400">Updated weekly · scraped from public profiles</p>
+    </div>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
 
       <!-- Instagram -->
-      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-5 flex items-center gap-5">
-        <div class="w-12 h-12 rounded-xl flex-shrink-0 flex items-center justify-center"
-             style="background: linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)">
-          <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-          </svg>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center"
+               style="background: linear-gradient(135deg, #f9ce34, #ee2a7b, #6228d7)">
+            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-gray-500">Instagram</span>
         </div>
-        <div>
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Instagram</p>
-          <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ "{:,}".format(summary.social.ig_followers) }}</p>
-          <p class="text-sm text-gray-500 mt-0.5">followers · <span class="text-pink-600 font-semibold">{{ summary.social.ig_handle }}</span></p>
-          <p class="text-xs text-gray-300 mt-1.5" title="Tracking begins after first weekly snapshot">+— followers this week</p>
-        </div>
+        {% if summary.social.instagram %}
+        <p class="text-2xl font-extrabold text-gray-900">{{ "{:,}".format(summary.social.instagram) }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">followers</p>
+        {% else %}
+        <p class="text-xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400 mt-0.5">not yet scraped</p>
+        {% endif %}
+        {% if social_history.get('instagram') and social_history['instagram'] | length >= 2 %}
+        {% set ig_counts = social_history['instagram'] | map(attribute='followers') | select('number') | list %}
+        {% if ig_counts | length >= 2 %}{% set mn=ig_counts|min %}{% set mx=ig_counts|max %}{% set rng=mx-mn if mx!=mn else 1 %}
+        <svg width="100%" height="24" viewBox="0 0 100 24" preserveAspectRatio="none" class="mt-2 overflow-visible">
+          <polyline fill="none" stroke="#ee2a7b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            points="{% for i in range(ig_counts|length) %}{{ (i/(ig_counts|length-1)*100)|round(1) }},{{ (20-((ig_counts[i]-mn)/rng*16))|round(1) }} {% endfor %}"/>
+        </svg>
+        {% endif %}{% endif %}
       </div>
 
       <!-- Facebook -->
-      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-5 flex items-center gap-5">
-        <div class="w-12 h-12 rounded-xl bg-blue-600 flex-shrink-0 flex items-center justify-center">
-          <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-          </svg>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 flex-shrink-0 flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-gray-500">Facebook</span>
         </div>
-        <div>
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide">Facebook</p>
-          <p class="text-3xl font-extrabold text-gray-900 mt-1">{{ "{:,}".format(summary.social.fb_likes) }}</p>
-          <p class="text-sm text-gray-500 mt-0.5">page likes</p>
-          <p class="text-xs text-gray-300 mt-1.5" title="Tracking begins after first weekly snapshot">+— likes this week</p>
+        {% if summary.social.facebook %}
+        <p class="text-2xl font-extrabold text-gray-900">{{ "{:,}".format(summary.social.facebook) }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">followers</p>
+        {% else %}
+        <p class="text-xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400 mt-0.5">not yet scraped</p>
+        {% endif %}
+        {% if social_history.get('facebook') and social_history['facebook'] | length >= 2 %}
+        {% set fb_counts = social_history['facebook'] | map(attribute='followers') | select('number') | list %}
+        {% if fb_counts | length >= 2 %}{% set mn=fb_counts|min %}{% set mx=fb_counts|max %}{% set rng=mx-mn if mx!=mn else 1 %}
+        <svg width="100%" height="24" viewBox="0 0 100 24" preserveAspectRatio="none" class="mt-2 overflow-visible">
+          <polyline fill="none" stroke="#3B82F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+            points="{% for i in range(fb_counts|length) %}{{ (i/(fb_counts|length-1)*100)|round(1) }},{{ (20-((fb_counts[i]-mn)/rng*16))|round(1) }} {% endfor %}"/>
+        </svg>
+        {% endif %}{% endif %}
+      </div>
+
+      <!-- TikTok -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg bg-gray-900 flex-shrink-0 flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.77 1.52V6.74a4.85 4.85 0 01-1-.05z"/>
+            </svg>
+          </div>
+          <span class="text-xs font-semibold text-gray-500">TikTok</span>
         </div>
+        {% if summary.social.tiktok %}
+        <p class="text-2xl font-extrabold text-gray-900">{{ "{:,}".format(summary.social.tiktok) }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">followers</p>
+        {% else %}
+        <p class="text-xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400 mt-0.5">not configured</p>
+        {% endif %}
+      </div>
+
+      <!-- XHS -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center" style="background:#FF2442">
+            <span class="text-white text-xs font-black leading-none">红</span>
+          </div>
+          <span class="text-xs font-semibold text-gray-500">小红书 XHS</span>
+        </div>
+        {% if summary.social.xhs %}
+        <p class="text-2xl font-extrabold text-gray-900">{{ "{:,}".format(summary.social.xhs) }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">followers</p>
+        {% else %}
+        <p class="text-xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400 mt-0.5">not configured</p>
+        {% endif %}
       </div>
 
     </div>
