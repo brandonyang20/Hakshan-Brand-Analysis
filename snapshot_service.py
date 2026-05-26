@@ -120,35 +120,6 @@ def _save_file(tenant_id: str, branch_id: str, rows: list) -> None:
 
 
 
-def fetch_branch_snapshot(maps_query: str) -> dict | None:
-    """Call Serpapi Google Maps engine. Return {rating, review_count} or None."""
-    api_key = os.environ.get("SERPAPI_KEY")
-    if not api_key:
-        return None
-    import urllib.parse
-    import urllib.request
-
-    params = urllib.parse.urlencode({
-        "engine": "google_maps",
-        "q": maps_query.replace("+", " "),
-        "api_key": api_key,
-    })
-    try:
-        req = urllib.request.Request(
-            f"https://serpapi.com/search.json?{params}",
-            headers={"User-Agent": "BrandPulse/1.0"},
-        )
-        with urllib.request.urlopen(req, timeout=15) as resp:
-            data = json.loads(resp.read())
-        results = data.get("local_results") or []
-        if not results:
-            return None
-        top = results[0]
-        return {"rating": top.get("rating"), "review_count": top.get("reviews")}
-    except Exception:
-        return None
-
-
 # ── storage ────────────────────────────────────────────────────────────────────
 
 def store_snapshot(tenant_id: str, branch_id: str, rating, review_count) -> None:
