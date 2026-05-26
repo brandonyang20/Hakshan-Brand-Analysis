@@ -305,10 +305,10 @@ def create_app() -> Flask:
         if tenant is None:
             return jsonify({"error": "Tenant not found"}), 404
         try:
-            from snapshot_service import run_weekly_snapshot
+            from snapshot_service import run_daily_snapshot
             data = get_data(force=False)
             branches = data.get("branches", [])
-            result = run_weekly_snapshot(tenant["id"], branches)
+            result = run_daily_snapshot(tenant["id"], branches)
             return jsonify(result)
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
