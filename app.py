@@ -363,14 +363,61 @@ def create_app() -> Flask:
 
     @app.route("/login", methods=["POST"])
     def login_submit():
-        flash("Magic link sent — check your email.")
-        return redirect(url_for("login_page"))
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
+        next_url = request.args.get("next", "")
 
-    @app.route("/auth/magic")
-    def auth_magic():
-        # Stub: token validation not yet implemented
-        flash("Invalid or expired link.")
-        return redirect(url_for("login_page"))
+        if not email or not password:
+            flash("Email and password are required.")
+            return redirect(url_for("login_page"))
+
+        try:
+            from auth import get_supabase_client
+            client = get_supabase_client()
+            if not client:
+                flash("Auth not configured — SUPABASE_URL missing.")
+                return redirect(url_for("login_page"))
+
+            result = client.auth.sign_in_with_password({"email": email, "password": password})
+            user = result.user
+            if not user:
+                flash("Invalid email or password.")
+                return redirect(url_for("login_page"))
+
+            # Look up which tenant this user belongs to
+            tu = (
+                client.table("tenant_users")
+                .select("tenant_id")
+                .eq("id", user.id)
+                .single()
+                .execute()
+            )
+            if not tu.data:
+                flash("No tenant linked to this account — contact your administrator.")
+                return redirect(url_for("login_page"))
+
+            tenant_id = tu.data["tenant_id"]
+            tenant_row = (
+                client.table("tenants")
+                .select("slug")
+                .eq("id", tenant_id)
+                .single()
+                .execute()
+            )
+            tenant_slug = tenant_row.data["slug"] if tenant_row.data else ""
+
+            session["user_id"] = user.id
+            session["tenant_id"] = tenant_id
+            session["tenant_slug"] = tenant_slug
+            session.permanent = True
+
+            dest = next_url if next_url and next_url.startswith("/") else f"/t/{tenant_slug}/dashboard"
+            return redirect(dest)
+
+        except Exception as exc:
+            print(f"[login] Auth error: {exc}")
+            flash("Incorrect email or password.")
+            return redirect(url_for("login_page") + (f"?next={next_url}" if next_url else ""))
 
     @app.route("/logout")
     def logout():
