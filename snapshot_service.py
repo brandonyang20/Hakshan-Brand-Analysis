@@ -75,8 +75,8 @@ def store_snapshot(tenant_id: str, branch_id: str, rating, review_count) -> None
 
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 client.table("review_snapshots").upsert({
                     "tenant_id": tenant_id,
@@ -106,8 +106,8 @@ def get_latest_snapshot(tenant_id: str, branch_id: str) -> dict | None:
     """Return the most recent snapshot row, or None."""
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 r = (
                     client.table("review_snapshots")
@@ -131,8 +131,8 @@ def get_review_delta(tenant_id: str, branch_id: str):
     """Return this_week_count - last_week_count, or None if < 2 snapshots."""
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 r = (
                     client.table("review_snapshots")
@@ -166,8 +166,8 @@ def get_snapshot_history(tenant_id: str, branch_id: str, limit: int = 12) -> lis
     """Return up to `limit` snapshots oldest-first for sparkline rendering."""
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 r = (
                     client.table("review_snapshots")

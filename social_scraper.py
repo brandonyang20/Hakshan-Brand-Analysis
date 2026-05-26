@@ -330,8 +330,8 @@ def store_social_snapshot(tenant_id: str, platform: str, data: dict | None) -> N
 
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 client.table("social_snapshots").upsert(row).execute()
                 return
@@ -358,8 +358,8 @@ def get_social_history(tenant_id: str, platform: str, limit: int = 12) -> list:
     """Return recent snapshots for this platform, oldest first, for trend charts."""
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 r = (
                     client.table("social_snapshots")
@@ -405,8 +405,8 @@ def get_tenant_social_handles(tenant_id: str) -> dict:
     """Load social handles from tenant_config. Falls back to dev config."""
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 r = (
                     client.table("tenant_config")

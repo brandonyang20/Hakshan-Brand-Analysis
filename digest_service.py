@@ -112,8 +112,8 @@ def store_digest(tenant_id: str, digest_text: str) -> None:
 
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 client.table("intelligence_digests").upsert({
                     "tenant_id": tenant_id,
@@ -147,8 +147,8 @@ def get_latest_digest(tenant_id: str) -> dict | None:
     """
     if os.environ.get("SUPABASE_URL"):
         try:
-            from auth import get_supabase_client
-            client = get_supabase_client()
+            from auth import get_supabase_admin_client
+            client = get_supabase_admin_client()
             if client:
                 r = (
                     client.table("intelligence_digests")
