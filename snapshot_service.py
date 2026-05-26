@@ -13,10 +13,92 @@ from zoneinfo import ZoneInfo
 
 _MYT = ZoneInfo("Asia/Kuala_Lumpur")
 
-_CACHE_DIR = os.path.join(os.path.dirname(__file__), "cache", "snapshots")
+_PLACE_IDS_FILE = os.path.join(os.path.dirname(__file__), "cache", "place_ids.json")
 
 
-# ── file-based storage (dev / Supabase-not-configured) ────────────────────────
+def _load_place_ids() -> dict:
+    try:
+        with open(_PLACE_IDS_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def _save_place_ids(ids: dict) -> None:
+    os.makedirs(os.path.dirname(_PLACE_IDS_FILE), exist_ok=True)
+    with open(_PLACE_IDS_FILE, "w") as f:
+        json.dump(ids, f)
+
+
+# ── Google Places API fetch ────────────────────────────────────────────────────
+
+def fetch_branch_snapshot(maps_query: str, branch_key: str | None = None) -> dict | None:
+    """
+    Fetch rating + review count from Google Places API.
+
+    First call per branch uses Text Search (discovers place_id).
+    Subsequent calls use Place Details with the cached place_id (faster).
+    branch_key format: "{tenant_id}:{branch_id}" for place_id caching.
+    """
+    api_key = os.environ.get("GOOGLE_PLACES_KEY")
+    if not api_key:
+        return None
+
+    import urllib.parse
+    import urllib.request
+
+    place_ids = _load_place_ids()
+    cached_id = place_ids.get(branch_key) if branch_key else None
+
+    if cached_id:
+        params = urllib.parse.urlencode({
+            "place_id": cached_id,
+            "fields": "rating,user_ratings_total",
+            "key": api_key,
+        })
+        try:
+            req = urllib.request.Request(
+                f"https://maps.googleapis.com/maps/api/place/details/json?{params}",
+                headers={"User-Agent": "BrandPulse/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+            result = data.get("result", {})
+            if result.get("rating") is not None:
+                return {
+                    "rating": result.get("rating"),
+                    "review_count": result.get("user_ratings_total"),
+                }
+        except Exception:
+            pass  # fall through to Text Search
+
+    # Text Search — resolves query to place_id on first call
+    params = urllib.parse.urlencode({
+        "query": maps_query.replace("+", " "),
+        "key": api_key,
+    })
+    try:
+        req = urllib.request.Request(
+            f"https://maps.googleapis.com/maps/api/place/textsearch/json?{params}",
+            headers={"User-Agent": "BrandPulse/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+        results = data.get("results") or []
+        if not results:
+            return None
+        top = results[0]
+        # Cache place_id so future calls skip Text Search
+        if branch_key and top.get("place_id"):
+            place_ids[branch_key] = top["place_id"]
+            _save_place_ids(place_ids)
+        return {
+            "rating": top.get("rating"),
+            "review_count": top.get("user_ratings_total"),
+        }
+    except Exception:
+        return None
+
 
 def _snap_path(tenant_id: str, branch_id: str) -> str:
     d = os.path.join(_CACHE_DIR, tenant_id)
@@ -37,7 +119,6 @@ def _save_file(tenant_id: str, branch_id: str, rows: list) -> None:
         json.dump(rows, f)
 
 
-# ── Serpapi fetch ──────────────────────────────────────────────────────────────
 
 def fetch_branch_snapshot(maps_query: str) -> dict | None:
     """Call Serpapi Google Maps engine. Return {rating, review_count} or None."""
@@ -270,8 +351,8 @@ def compute_all_health_scores(tenant_id: str, branches_data: list) -> dict:
 
 def run_daily_snapshot(tenant_id: str, branches: list) -> dict:
     """Snapshot all branches for a tenant. Returns {ok, failed, skipped} lists."""
-    if not os.environ.get("SERPAPI_KEY"):
-        return {"error": "SERPAPI_KEY not configured"}
+    if not os.environ.get("GOOGLE_PLACES_KEY"):
+        return {"error": "GOOGLE_PLACES_KEY not configured"}
 
     ok, failed, skipped = [], [], []
     for b in branches:
@@ -281,13 +362,14 @@ def run_daily_snapshot(tenant_id: str, branches: list) -> dict:
             skipped.append(bid or "?")
             continue
 
-        snap = fetch_branch_snapshot(query)
+        branch_key = f"{tenant_id}:{bid}"
+        snap = fetch_branch_snapshot(query, branch_key)
         if snap and snap.get("rating") is not None:
             store_snapshot(tenant_id, bid, snap["rating"], snap.get("review_count"))
             ok.append(bid)
         else:
             failed.append(bid)
 
-        time.sleep(2)  # polite rate limiting — 1 request per 2 seconds
+        time.sleep(1)
 
     return {"ok": ok, "failed": failed, "skipped": skipped}

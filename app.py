@@ -176,14 +176,14 @@ _REQUIRED_ENV_VARS = {
 
 _OPTIONAL_ENV_VARS = {
     "ADMIN_TOKEN": "Bearer token for POST /api/competitors/social and /api/snapshot/run — admin endpoints disabled without it",
-    "SERPAPI_KEY": "Review snapshots — daily rating/count polling per branch",
+    "GOOGLE_PLACES_KEY": "Review snapshots — daily rating/count polling per branch via Google Places API",
     "ANTHROPIC_API_KEY": "Weekly AI digest generation — Intelligence section disabled without it",
 }
 
 # Future-required vars (add to _REQUIRED_ENV_VARS when each phase ships):
 #   FLASK_SECRET_KEY        — Phase 1A: session signing
 #   TENANT_SECRET_KEY       — Phase 1A: Fernet token encryption
-#   SERPAPI_KEY             — Phase 1B: review snapshot service
+#   GOOGLE_PLACES_KEY       — Phase 1B: review snapshot service (Google Places API)
 #   SUPABASE_URL            — Phase 1A: database
 #   SUPABASE_KEY            — Phase 1A: database
 #   BILLPLZ_WEBHOOK_SECRET  — Phase 2A: billing
