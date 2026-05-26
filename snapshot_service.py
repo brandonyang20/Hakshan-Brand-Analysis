@@ -84,8 +84,13 @@ def fetch_branch_snapshot(maps_query: str, branch_key: str | None = None) -> dic
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read())
+        status = data.get("status")
+        if status != "OK":
+            print(f"[snapshot] Places API error for '{maps_query}': status={status} error={data.get('error_message', '')}")
+            return None
         results = data.get("results") or []
         if not results:
+            print(f"[snapshot] Places API: no results for '{maps_query}'")
             return None
         top = results[0]
         # Cache place_id so future calls skip Text Search

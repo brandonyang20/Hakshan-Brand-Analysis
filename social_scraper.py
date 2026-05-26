@@ -280,10 +280,12 @@ async def scrape_all_platforms(
     results = {}
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-        )
+        executable = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+        launch_kwargs = {
+            "headless": True,
+            "args": ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+        }
+        browser = await p.chromium.launch(**launch_kwargs)
         try:
             for platform, handle in social_handles.items():
                 if not handle:
