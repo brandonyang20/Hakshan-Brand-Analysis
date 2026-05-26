@@ -87,7 +87,7 @@ STATIC_DATA = {
     "social_media": {
         "instagram": {
             "handle": "@hakshan_",
-            "followers": 2771,
+            "followers": 3100,
             "posts": 348,
             "status": "active_undergrown",
             "label": "Under-grown",
@@ -98,7 +98,7 @@ STATIC_DATA = {
         },
         "facebook": {
             "page": "客善 Hakshan",
-            "likes": 6257,
+            "likes": 8000,
             "status": "moderate",
             "label": "Moderate",
             "note": "Stronger than IG; skews older Chinese demographic (30–55)",
@@ -429,8 +429,8 @@ STATIC_DATA = {
         ],
     },
     "kpi_targets": {
-        "instagram_followers": {"current": 2771, "target_3m": 6000, "target_12m": 15000},
-        "facebook_likes": {"current": 6257, "target_3m": 10000, "target_12m": 20000},
+        "instagram_followers": {"current": 3100, "target_3m": 6000, "target_12m": 15000},
+        "facebook_likes": {"current": 8000, "target_3m": 12000, "target_12m": 25000},
         "tiktok_followers": {"current": 0, "target_3m": 2000, "target_12m": 10000},
         "xhs_followers": {"current": 0, "target_3m": 500, "target_12m": 2000},
         "google_response_rate": {"current_pct": 20, "target_pct": 90},
@@ -473,7 +473,7 @@ STATIC_DATA = {
         },
         "competitor_social_comparison": {
             "labels": ["Instagram", "Facebook", "TikTok", "XHS"],
-            "hakshan":    [2771, 6257, 0, 0],
+            "hakshan":    [3100, 8000, 0, 0],
             "hakka_kl":   [500,  3500, 0, 0],
             "hakka_pass": [500,  0,    0, 0],
             "ke_ren_lai": [1200, 4200, 0, 0],
