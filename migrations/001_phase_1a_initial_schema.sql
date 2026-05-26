@@ -16,10 +16,10 @@
 --   auth.jwt() ->> 'tenant_id' (Supabase default JWTs carry no tenant_id
 --   claim; that pattern silently returns zero rows on every query).
 --
--- Token encryption:
---   instagram_token_enc / facebook_token_enc are Fernet-encrypted at the
---   application layer using TENANT_SECRET_KEY env var. Supabase Vault deferred
---   to Month 2-3 (requires Pro plan).
+-- NOTE: Tables are created first (all of them), then RLS + policies are applied.
+--   This is required because the tenants policy references tenant_users, and
+--   tenant_users references tenants via FK — both must exist before any policy
+--   that cross-references them is created.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -41,16 +41,6 @@ CREATE TABLE tenants (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
-
--- Tenants row is selected via the tenant_users join; no direct USING clause
--- on tenant_id needed here because tenant_users.tenant_id links the two.
--- Users can only see the tenant they belong to.
-CREATE POLICY tenant_isolation ON tenants
-  USING (id = (
-    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
-  ));
-
 -- ---------------------------------------------------------------------------
 -- 2. tenant_users  (maps to Supabase Auth users)
 -- ---------------------------------------------------------------------------
@@ -62,33 +52,19 @@ CREATE TABLE tenant_users (
   UNIQUE (tenant_id, email)
 );
 
-ALTER TABLE tenant_users ENABLE ROW LEVEL SECURITY;
-
--- Each user can only see their own row (self_access).
--- The join in other tables' RLS policies reads this table as the auth anchor.
-CREATE POLICY self_access ON tenant_users
-  USING (id = auth.uid());
-
 -- ---------------------------------------------------------------------------
 -- 3. tenant_config
 -- ---------------------------------------------------------------------------
 CREATE TABLE tenant_config (
   id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id           UUID        UNIQUE NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  instagram_token_enc TEXT,          -- Fernet-encrypted token
-  facebook_token_enc  TEXT,          -- Fernet-encrypted token
+  instagram_token_enc TEXT,
+  facebook_token_enc  TEXT,
   facebook_page_id    TEXT,
   branches            JSONB       NOT NULL DEFAULT '[]',
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
-ALTER TABLE tenant_config ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY tenant_isolation ON tenant_config
-  USING (tenant_id = (
-    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
-  ));
 
 -- ---------------------------------------------------------------------------
 -- 4. billplz_bills
@@ -105,13 +81,6 @@ CREATE TABLE billplz_bills (
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE billplz_bills ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY tenant_isolation ON billplz_bills
-  USING (tenant_id = (
-    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
-  ));
-
 -- ---------------------------------------------------------------------------
 -- 5. review_snapshots
 -- ---------------------------------------------------------------------------
@@ -123,31 +92,59 @@ CREATE TABLE review_snapshots (
   review_count  INTEGER,
   snapshot_date DATE        NOT NULL,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (tenant_id, branch_id, snapshot_date)   -- prevents duplicate cron runs
+  UNIQUE (tenant_id, branch_id, snapshot_date)
 );
 
-ALTER TABLE review_snapshots ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY tenant_isolation ON review_snapshots
-  USING (tenant_id = (
-    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
-  ));
-
 -- ---------------------------------------------------------------------------
--- 6. payment_events  (immutable audit trail — one row per state transition)
+-- 6. payment_events  (immutable audit trail)
 -- ---------------------------------------------------------------------------
 CREATE TABLE payment_events (
   id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id         UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   event_type        TEXT        NOT NULL,
   gateway           TEXT        NOT NULL CHECK (gateway IN ('billplz','stripe')),
-  gateway_reference TEXT        UNIQUE,   -- bill_id or stripe event_id (idempotency key)
+  gateway_reference TEXT        UNIQUE,
   amount_sen        INTEGER,
   status            TEXT        NOT NULL,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-ALTER TABLE payment_events ENABLE ROW LEVEL SECURITY;
+-- ---------------------------------------------------------------------------
+-- RLS — enable + policies (all tables exist by this point)
+-- ---------------------------------------------------------------------------
+
+ALTER TABLE tenants         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_users    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_config   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE billplz_bills   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE review_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE payment_events  ENABLE ROW LEVEL SECURITY;
+
+-- tenants: user sees only their own tenant (via tenant_users join)
+CREATE POLICY tenant_isolation ON tenants
+  USING (id = (
+    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
+  ));
+
+-- tenant_users: each user sees only their own row
+CREATE POLICY self_access ON tenant_users
+  USING (id = auth.uid());
+
+-- all other tables: isolated by tenant_id via tenant_users
+CREATE POLICY tenant_isolation ON tenant_config
+  USING (tenant_id = (
+    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
+  ));
+
+CREATE POLICY tenant_isolation ON billplz_bills
+  USING (tenant_id = (
+    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
+  ));
+
+CREATE POLICY tenant_isolation ON review_snapshots
+  USING (tenant_id = (
+    SELECT tenant_id FROM tenant_users WHERE id = auth.uid()
+  ));
 
 CREATE POLICY tenant_isolation ON payment_events
   USING (tenant_id = (
