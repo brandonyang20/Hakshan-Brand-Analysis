@@ -77,7 +77,7 @@
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
         d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
     </svg>
-    Refresh
+    <span id="refresh-label">Refresh</span>
   </button>
 
   <!-- Logout -->
@@ -190,23 +190,12 @@
         <h2 class="text-sm font-semibold text-gray-900">Branch Health</h2>
         <p class="text-xs text-gray-400 mt-0.5">Sorted by urgency — alerts first</p>
       </div>
-      <div class="flex items-center gap-3 flex-wrap justify-end">
-        <!-- Legend -->
-        <div class="flex items-center gap-3 text-xs">
-          <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>Alert</span>
-          <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>Watch</span>
-          <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>Good</span>
-          <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>Excellent</span>
-        </div>
-        <!-- Manual refresh -->
-        <button id="refresh-reviews-btn"
-          onclick="refreshReviews('{{ slug }}')"
-          class="flex items-center gap-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors">
-          <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-          </svg>
-          <span id="refresh-label">Refresh reviews</span>
-        </button>
+      <!-- Legend -->
+      <div class="flex items-center gap-3 text-xs flex-wrap justify-end">
+        <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>Alert</span>
+        <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block"></span>Watch</span>
+        <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>Good</span>
+        <span class="flex items-center gap-1 text-gray-500"><span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>Excellent</span>
       </div>
     </div>
 
@@ -573,53 +562,32 @@
 <script>
   let refreshing = false;
 
-  function refreshData() {
+  async function refreshData() {
     if (refreshing) return;
     refreshing = true;
     const btn = document.getElementById('refresh-btn');
-    const icon = document.getElementById('refresh-icon');
-    btn.disabled = true;
-    icon.classList.add('animate-spin');
-
-    fetch('/api/refresh', { method: 'POST' })
-      .then(() => window.location.reload())
-      .catch(() => {
-        refreshing = false;
-        btn.disabled = false;
-        icon.classList.remove('animate-spin');
-      });
-  }
-
-  // Auto-refresh every 30 minutes
-  setTimeout(() => window.location.reload(), 30 * 60 * 1000);
-
-  async function refreshReviews(slug) {
-    const btn = document.getElementById('refresh-reviews-btn');
     const icon = document.getElementById('refresh-icon');
     const label = document.getElementById('refresh-label');
     btn.disabled = true;
     icon.classList.add('animate-spin');
     label.textContent = 'Refreshing…';
+
     try {
-      const res = await fetch(`/t/${slug}/snapshot/run`, { method: 'POST' });
-      const data = await res.json();
-      if (data.error) {
-        label.textContent = data.error;
-        setTimeout(() => { label.textContent = 'Refresh reviews'; btn.disabled = false; icon.classList.remove('animate-spin'); }, 3000);
-      } else {
-        const ok = (data.ok || []).length;
-        const failed = (data.failed || []).length;
-        icon.classList.remove('animate-spin');
-        icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>';
-        label.textContent = failed ? `${ok} ok, ${failed} failed` : `${ok} branches updated`;
-        setTimeout(() => window.location.reload(), 1500);
-      }
+      await Promise.all([
+        fetch('/api/refresh', { method: 'POST' }),
+        fetch('/t/{{ slug }}/snapshot/run', { method: 'POST' }),
+      ]);
+      window.location.reload();
     } catch {
-      label.textContent = 'Error — try again';
+      refreshing = false;
       btn.disabled = false;
       icon.classList.remove('animate-spin');
+      label.textContent = 'Refresh';
     }
   }
+
+  // Auto-refresh every 30 minutes
+  setTimeout(() => window.location.reload(), 30 * 60 * 1000);
 </script>
 
 </body>
