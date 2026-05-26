@@ -573,17 +573,30 @@
     label.textContent = 'Refreshing…';
 
     try {
-      await Promise.all([
+      const [, reviewsRes, socialRes] = await Promise.all([
         fetch('/api/refresh', { method: 'POST' }),
         fetch('/t/{{ slug }}/snapshot/run', { method: 'POST' }),
         fetch('/t/{{ slug }}/social/run', { method: 'POST' }),
       ]);
-      window.location.reload();
-    } catch {
+      const reviews = await reviewsRes.json();
+      const social = await socialRes.json();
+      console.log('Reviews:', reviews);
+      console.log('Social:', social);
+      if (reviews.error || social.error) {
+        icon.classList.remove('animate-spin');
+        label.textContent = reviews.error || social.error;
+        refreshing = false;
+        btn.disabled = false;
+        setTimeout(() => { label.textContent = 'Refresh'; }, 4000);
+      } else {
+        window.location.reload();
+      }
+    } catch (e) {
+      console.error('Refresh error:', e);
       refreshing = false;
       btn.disabled = false;
       icon.classList.remove('animate-spin');
-      label.textContent = 'Refresh';
+      label.textContent = 'Error — try again';
     }
   }
 
