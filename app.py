@@ -293,6 +293,27 @@ def create_app() -> Flask:
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
+    @app.route("/t/<slug>/snapshot/run", methods=["POST"])
+    def tenant_snapshot_run(slug):
+        from auth import require_auth, require_tenant
+        if not SLUG_RE.match(slug):
+            return jsonify({"error": "Invalid slug"}), 400
+        if not session.get("user_id"):
+            return jsonify({"error": "Unauthorized"}), 401
+        if session.get("tenant_slug") != slug:
+            return jsonify({"error": "Forbidden"}), 403
+        tenant = lookup_tenant(slug)
+        if tenant is None:
+            return jsonify({"error": "Tenant not found"}), 404
+        try:
+            from snapshot_service import run_daily_snapshot
+            data = get_data(force=False)
+            branches = data.get("branches", [])
+            result = run_daily_snapshot(tenant["id"], branches)
+            return jsonify(result)
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
     @app.route("/api/snapshot/run", methods=["POST"])
     def api_snapshot_run():
         auth = request.headers.get("Authorization", "")
