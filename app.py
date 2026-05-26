@@ -293,6 +293,30 @@ def create_app() -> Flask:
         except Exception as exc:
             return jsonify({"error": str(exc)}), 500
 
+    @app.route("/t/<slug>/social/run", methods=["POST"])
+    def tenant_social_run(slug):
+        if not SLUG_RE.match(slug):
+            return jsonify({"error": "Invalid slug"}), 400
+        if not session.get("user_id"):
+            return jsonify({"error": "Unauthorized"}), 401
+        if session.get("tenant_slug") != slug:
+            return jsonify({"error": "Forbidden"}), 403
+        tenant = lookup_tenant(slug)
+        if tenant is None:
+            return jsonify({"error": "Tenant not found"}), 404
+        try:
+            from social_scraper import get_tenant_social_handles, run_scrape, store_social_snapshot
+            handles = get_tenant_social_handles(tenant["id"])
+            results = run_scrape(handles)
+            for platform, data in results.items():
+                store_social_snapshot(tenant["id"], platform, data)
+            return jsonify({"ok": list(results.keys()), "results": {
+                p: {"followers": d.get("followers")} if d else {"error": "scrape_failed"}
+                for p, d in results.items()
+            }})
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 500
+
     @app.route("/t/<slug>/snapshot/run", methods=["POST"])
     def tenant_snapshot_run(slug):
         from auth import require_auth, require_tenant

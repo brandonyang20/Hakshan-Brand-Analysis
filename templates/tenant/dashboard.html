@@ -576,6 +576,7 @@
       await Promise.all([
         fetch('/api/refresh', { method: 'POST' }),
         fetch('/t/{{ slug }}/snapshot/run', { method: 'POST' }),
+        fetch('/t/{{ slug }}/social/run', { method: 'POST' }),
       ]);
       window.location.reload();
     } catch {
