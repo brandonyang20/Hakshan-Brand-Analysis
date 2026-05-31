@@ -4,6 +4,61 @@ from functools import wraps
 
 from flask import redirect, request, session
 
+
+# ── Fernet token encryption ────────────────────────────────────────────────────
+
+def _get_fernet():
+    key = os.environ.get("TENANT_SECRET_KEY", "")
+    if not key:
+        raise RuntimeError("TENANT_SECRET_KEY not set — cannot encrypt/decrypt tokens")
+    from cryptography.fernet import Fernet
+    return Fernet(key.encode())
+
+
+def encrypt_token(plaintext: str) -> str:
+    """Fernet-encrypt a token. Returns base64 string safe for DB storage."""
+    return _get_fernet().encrypt(plaintext.encode()).decode()
+
+
+def decrypt_token(ciphertext: str) -> str:
+    """Decrypt a Fernet-encrypted token. Raises InvalidToken on tamper/wrong key."""
+    return _get_fernet().decrypt(ciphertext.encode()).decode()
+
+
+def get_tenant_social_tokens(tenant_id: str) -> dict:
+    """
+    Load + decrypt social tokens from tenant_config.
+    Returns {"instagram": token, "facebook_token": token, "facebook_page_id": id}
+    Returns {} on any error — never raises, never logs token values.
+    """
+    try:
+        client = get_supabase_admin_client()
+        if not client:
+            return {}
+        r = (
+            client.table("tenant_config")
+            .select("instagram_token_enc,facebook_token_enc,facebook_page_id")
+            .eq("tenant_id", tenant_id)
+            .single()
+            .execute()
+        )
+        row = r.data or {}
+        result = {}
+        if row.get("instagram_token_enc"):
+            try:
+                result["instagram"] = decrypt_token(row["instagram_token_enc"])
+            except Exception:
+                print(f"[auth] Failed to decrypt instagram token for tenant {tenant_id}")
+        if row.get("facebook_token_enc"):
+            try:
+                result["facebook_token"] = decrypt_token(row["facebook_token_enc"])
+                result["facebook_page_id"] = row.get("facebook_page_id", "")
+            except Exception:
+                print(f"[auth] Failed to decrypt facebook token for tenant {tenant_id}")
+        return result
+    except Exception:
+        return {}
+
 SLUG_RE = re.compile(r"^[a-z0-9-]{3,50}$")
 
 

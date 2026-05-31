@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Social Accounts — {{ brand_name }} BrandPulse</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;700&display=swap" rel="stylesheet"/>
+  <script>
+    var s = document.createElement('script');
+    s.src = 'https://cdn.tailwindcss.com';
+    document.head.appendChild(s);
+  </script>
+  <link rel="stylesheet" href="/static/css/dashboard.css"/>
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #F5F6F8; }
+    .zh { font-family: 'Noto Sans SC', sans-serif; }
+    .content-wrap { padding-top: 56px; }
+  </style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="fixed top-0 left-0 right-0 z-50 bg-gray-900 h-14 flex items-center px-4 gap-3 shadow-lg">
+  <div class="w-7 h-7 rounded bg-red-600 flex items-center justify-center flex-shrink-0">
+    <span class="text-white text-xs font-bold leading-none">BP</span>
+  </div>
+  <span class="text-white font-semibold text-sm truncate zh">{{ brand_name }}</span>
+  <div class="flex-1"></div>
+  <a href="/t/{{ slug }}/dashboard" class="text-gray-400 hover:text-gray-200 text-xs transition-colors">Dashboard</a>
+  <a href="/logout" class="text-gray-400 hover:text-gray-200 text-xs transition-colors hidden sm:block">Sign out</a>
+</nav>
+
+<div class="content-wrap max-w-2xl mx-auto px-4 py-8 space-y-6">
+
+  <!-- Header -->
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Social Accounts</h1>
+    <p class="text-sm text-gray-500 mt-1">Connect your social pages so BrandPulse can track follower counts automatically using the official API — no browser scraping needed.</p>
+  </div>
+
+  <!-- Success / disconnected banners -->
+  {% if connected %}
+  <div class="rounded-xl border border-green-200 bg-green-50 px-5 py-4 flex items-center gap-3">
+    <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+    </svg>
+    <span class="text-sm font-medium text-green-800">Instagram &amp; Facebook connected successfully.</span>
+  </div>
+  {% endif %}
+
+  {% if disconnected %}
+  <div class="rounded-xl border border-gray-200 bg-gray-50 px-5 py-4 flex items-center gap-3">
+    <svg class="w-5 h-5 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+    </svg>
+    <span class="text-sm font-medium text-gray-700">Social accounts disconnected.</span>
+  </div>
+  {% endif %}
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}
+  <div class="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+    {% for msg in messages %}
+    <p class="text-sm text-amber-800">{{ msg }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- Instagram + Facebook card -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-5 border-b border-gray-100">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <!-- Instagram + Facebook icons -->
+          <div class="flex -space-x-1">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 flex items-center justify-center ring-2 ring-white">
+              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+            </div>
+            <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center ring-2 ring-white">
+              <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+              </svg>
+            </div>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold text-gray-900">Instagram &amp; Facebook</h2>
+            <p class="text-xs text-gray-500">One authorization covers both platforms</p>
+          </div>
+        </div>
+        {% if has_instagram or has_facebook %}
+        <span class="inline-flex items-center gap-1.5 bg-green-100 text-green-700 text-xs font-medium px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+          Connected
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1.5 bg-gray-100 text-gray-500 text-xs font-medium px-2.5 py-1 rounded-full">
+          <span class="w-1.5 h-1.5 bg-gray-400 rounded-full"></span>
+          Not connected
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="px-6 py-5">
+      {% if has_instagram or has_facebook %}
+      <p class="text-sm text-gray-600 mb-4">
+        BrandPulse is fetching your follower counts via the official Graph API.
+        Tokens are Fernet-encrypted before storage — never stored in plaintext.
+      </p>
+      <div class="flex items-center gap-3">
+        {% if fb_app_id %}
+        <a href="/t/{{ slug }}/settings/social/connect"
+          class="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
+          Re-authorize
+        </a>
+        <span class="text-gray-300">|</span>
+        {% endif %}
+        <form method="POST" action="/t/{{ slug }}/settings/social/disconnect"
+          onsubmit="return confirm('Remove stored tokens? Social data will stop updating until you reconnect.')">
+          <button type="submit" class="text-sm font-medium text-red-500 hover:text-red-600 transition-colors">
+            Disconnect
+          </button>
+        </form>
+      </div>
+      {% elif fb_app_id %}
+      <p class="text-sm text-gray-600 mb-4">
+        Click below to authorize BrandPulse via Facebook Login. You'll be asked to grant
+        access to your Facebook Page and linked Instagram Business account.
+        BrandPulse only reads follower counts — it cannot post on your behalf.
+      </p>
+      <a href="/t/{{ slug }}/settings/social/connect"
+        class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+        </svg>
+        Connect via Facebook Login
+      </a>
+      {% else %}
+      <div class="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3">
+        <p class="text-sm text-amber-800 font-medium">Facebook App not configured</p>
+        <p class="text-xs text-amber-700 mt-1">
+          Set <code class="bg-amber-100 px-1 rounded">FACEBOOK_APP_ID</code>,
+          <code class="bg-amber-100 px-1 rounded">FACEBOOK_APP_SECRET</code>, and
+          <code class="bg-amber-100 px-1 rounded">APP_BASE_URL</code> in your Railway environment
+          variables to enable OAuth. In the meantime, set
+          <code class="bg-amber-100 px-1 rounded">INSTAGRAM_ACCESS_TOKEN</code> and
+          <code class="bg-amber-100 px-1 rounded">FACEBOOK_PAGE_ACCESS_TOKEN</code> manually.
+        </p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- TikTok card -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden opacity-60">
+    <div class="px-6 py-5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-gray-900 flex items-center justify-center">
+            <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.19 8.19 0 004.78 1.52V6.76a4.85 4.85 0 01-1.01-.07z"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold text-gray-900">TikTok</h2>
+            <p class="text-xs text-gray-500">TikTok Research API — coming soon</p>
+          </div>
+        </div>
+        <span class="inline-flex items-center bg-gray-100 text-gray-400 text-xs font-medium px-2.5 py-1 rounded-full">
+          Not available yet
+        </span>
+      </div>
+      <p class="text-xs text-gray-400 mt-3">
+        TikTok API access requires a business application that takes 2–4 weeks to approve.
+        Follower data is currently scraped via browser when available.
+      </p>
+    </div>
+  </div>
+
+  <!-- XHS card -->
+  <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden opacity-60">
+    <div class="px-6 py-5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
+            <span class="text-white text-xs font-bold">红</span>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold text-gray-900">Xiaohongshu (小红书)</h2>
+            <p class="text-xs text-gray-500">No public API available</p>
+          </div>
+        </div>
+        <span class="inline-flex items-center bg-gray-100 text-gray-400 text-xs font-medium px-2.5 py-1 rounded-full">
+          Manual setup
+        </span>
+      </div>
+      <p class="text-xs text-gray-400 mt-3">
+        XHS has no third-party API. Scraping requires a logged-in browser session.
+        Contact support to set up cookie-based access.
+      </p>
+    </div>
+  </div>
+
+  <!-- Back link -->
+  <div class="pt-2">
+    <a href="/t/{{ slug }}/dashboard" class="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+      ← Back to Dashboard
+    </a>
+  </div>
+
+</div>
+</body>
+</html>

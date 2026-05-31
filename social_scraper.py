@@ -259,6 +259,82 @@ async def _scrape_xhs(handle: str, browser, cookies: list | None = None) -> dict
         await ctx.close()
 
 
+# ── Graph API fast path ────────────────────────────────────────────────────────
+
+def _fetch_via_api(platform: str, api_tokens: dict) -> dict | None:
+    """
+    Try official Graph API for instagram/facebook.
+    Returns metrics dict on success, None if no token or API error.
+    TikTok/XHS always return None (no usable API yet).
+    """
+    if platform == "instagram":
+        token = api_tokens.get("instagram") or os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
+        if not token:
+            return None
+        try:
+            from data_fetcher import fetch_instagram_data
+            data = fetch_instagram_data(token)
+            if data:
+                print(f"[social_scraper] instagram: using Graph API")
+                return {
+                    "followers": data.get("followers"),
+                    "posts": data.get("posts"),
+                    "source": "instagram_api",
+                    "scraped_at": datetime.now(timezone.utc).isoformat(),
+                }
+        except Exception as exc:
+            print(f"[social_scraper] instagram Graph API error: {exc}")
+
+    elif platform == "facebook":
+        token = api_tokens.get("facebook_token") or os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN", "")
+        page_id = api_tokens.get("facebook_page_id") or os.environ.get("FACEBOOK_PAGE_ID", "")
+        if not token or not page_id:
+            return None
+        try:
+            from data_fetcher import fetch_facebook_data
+            data = fetch_facebook_data(token, page_id)
+            if data:
+                print(f"[social_scraper] facebook: using Graph API")
+                return {
+                    "followers": data.get("likes"),
+                    "source": "facebook_api",
+                    "scraped_at": datetime.now(timezone.utc).isoformat(),
+                }
+        except Exception as exc:
+            print(f"[social_scraper] facebook Graph API error: {exc}")
+
+    return None
+
+
+def get_tenant_api_tokens(tenant_id: str) -> dict:
+    """
+    Load API tokens for a tenant.
+    Phase 2: reads from Supabase tenant_config (encrypted).
+    Phase 1 fallback: reads from env vars (Hakshan).
+    Returns {} if neither is configured.
+    """
+    if os.environ.get("SUPABASE_URL"):
+        try:
+            from auth import get_tenant_social_tokens
+            tokens = get_tenant_social_tokens(tenant_id)
+            if tokens:
+                return tokens
+        except Exception:
+            pass
+
+    # Env var fallback (Hakshan / dev)
+    tokens = {}
+    ig = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
+    fb_token = os.environ.get("FACEBOOK_PAGE_ACCESS_TOKEN", "")
+    fb_page = os.environ.get("FACEBOOK_PAGE_ID", "")
+    if ig:
+        tokens["instagram"] = ig
+    if fb_token and fb_page:
+        tokens["facebook_token"] = fb_token
+        tokens["facebook_page_id"] = fb_page
+    return tokens
+
+
 # ── orchestrator ───────────────────────────────────────────────────────────────
 
 async def scrape_all_platforms(
@@ -309,9 +385,34 @@ async def scrape_all_platforms(
     return results
 
 
-def run_scrape(social_handles: dict, xhs_cookies: list | None = None) -> dict:
-    """Synchronous wrapper — use this from APScheduler and Flask routes."""
-    return asyncio.run(scrape_all_platforms(social_handles, xhs_cookies))
+def run_scrape(
+    social_handles: dict,
+    xhs_cookies: list | None = None,
+    api_tokens: dict | None = None,
+) -> dict:
+    """
+    API-first synchronous wrapper.
+    instagram/facebook: tries Graph API first, falls back to Playwright only if no token.
+    tiktok/xhs: always uses Playwright.
+    """
+    tokens = api_tokens or {}
+    results = {}
+    playwright_handles = {}
+
+    for platform, handle in social_handles.items():
+        if not handle:
+            continue
+        api_result = _fetch_via_api(platform, tokens)
+        if api_result is not None:
+            results[platform] = api_result
+        else:
+            playwright_handles[platform] = handle
+
+    if playwright_handles:
+        playwright_results = asyncio.run(scrape_all_platforms(playwright_handles, xhs_cookies))
+        results.update(playwright_results)
+
+    return results
 
 
 # ── storage ────────────────────────────────────────────────────────────────────
